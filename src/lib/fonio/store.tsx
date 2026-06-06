@@ -167,17 +167,17 @@ export function FonioProvider({ children }: { children: ReactNode }) {
       },
       setSlotPaused: pauseSlotViaApi,
       callNextCandidate: async (id) => {
-        const response = (await fonioApi.dispatchWave({ slotId: id })) as {
-          ok: boolean;
-          reason?: string;
-          slot: Slot;
+        const response = (await fonioApi.orchestrateCallWave(id)) as {
+          success: boolean;
+          slotId: string;
+          candidatesCalled: string[];
+          callResults: { candidateId: string; candidateName: string; outcome?: string }[];
+          message: string;
         };
         await hydrateBackendState();
         return {
-          ok: response.ok,
-          message: response.ok
-            ? "Next backend-selected wave dispatched."
-            : (response.reason ?? "Could not dispatch next wave."),
+          ok: response.success,
+          message: response.message,
         };
       },
       manualBook: async (slotId, candidateName) => {

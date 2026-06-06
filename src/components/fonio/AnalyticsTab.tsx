@@ -294,7 +294,10 @@ function average(values: number[]) {
 
 
 function dayLabel(timestamp: string) {
-  return new Intl.DateTimeFormat("en", { weekday: "short" }).format(new Date(timestamp));
+  const date = new Date(timestamp);
+  const weekday = new Intl.DateTimeFormat("en", { weekday: "short" }).format(date);
+  const day = date.getDate();
+  return `${weekday} ${day}`;
 }
 
 interface MetricCardProps {

@@ -36,7 +36,15 @@ export async function makeOutboundCall(
   const agentId = process.env.FONIO_AGENT_ID;
 
   if (!apiKey || !fromNumber || !agentId) {
-    throw new Error("Fonio credentials not configured in environment variables");
+    const missingVars = [
+      !apiKey && "FONIO_API_KEY",
+      !fromNumber && "FONIO_FROM_NUMBER",
+      !agentId && "FONIO_AGENT_ID",
+    ]
+      .filter(Boolean)
+      .join(", ");
+    console.error(`[FONIO] ❌ Missing credentials: ${missingVars}`);
+    throw new Error(`Fonio credentials not configured: ${missingVars}`);
   }
 
   const payload: FonioCallRequest = {
@@ -53,9 +61,13 @@ export async function makeOutboundCall(
     },
   };
 
-  console.log(`[FONIO] Initiating call to ${toNumber} for candidate ${candidateName}`);
+  console.log(
+    `[FONIO] 📞 Initiating outbound call to ${toNumber} for ${candidateName} (slot: ${slotDetails.timeLabel}, service: ${slotDetails.service})`,
+  );
+  console.log(`[FONIO] 📋 Agent ID: ${agentId}, From: ${fromNumber}`);
 
   try {
+    const startTime = Date.now();
     const response = await fetch(FONIO_ENDPOINT, {
       method: "POST",
       headers: {
@@ -64,28 +76,38 @@ export async function makeOutboundCall(
       body: JSON.stringify(payload),
     });
 
+    const requestDuration = Date.now() - startTime;
     const data = (await response.json()) as FonioCallResponse;
 
     if (!response.ok) {
-      console.error(`[FONIO] Call failed: ${data.message || data.error}`);
+      console.error(
+        `[FONIO] ❌ Call initiation failed (${response.status}): ${data.message || data.error}`,
+      );
+      console.error(`[FONIO] Response details:`, data);
       return {
         status: "error",
-        message: data.message || data.error || "Call initiation failed",
+        message: data.message || data.error || `HTTP ${response.status}: Call initiation failed`,
         statusCode: response.status,
       };
     }
 
-    console.log(`[FONIO] Call initiated successfully to ${toNumber}`);
+    console.log(
+      `[FONIO] ✓ Call initiated successfully (${requestDuration}ms) - Call ID: ${data.callId || "pending"}`,
+    );
+    console.log(`[FONIO] Message: ${data.message}`);
+
     return {
       status: "success",
       message: data.message || "Call initiated",
       callId: data.callId,
     };
   } catch (error) {
-    console.error("[FONIO] Network error:", error);
+    const errorMsg = error instanceof Error ? error.message : "Unknown network error";
+    console.error(`[FONIO] ❌ Network/Connection error: ${errorMsg}`);
+    console.error(`[FONIO] Stack:`, error);
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "Network error",
+      message: `Network error: ${errorMsg}`,
     };
   }
 }

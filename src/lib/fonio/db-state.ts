@@ -436,7 +436,23 @@ export function buildSlotViews(db: OpenSlotDbState): SlotView[] {
 export function buildWaitlistViews(db: OpenSlotDbState): WaitlistView[] {
   return db.patients
     .map((patient) => {
-      const entries = db.waitlist_entries.filter((entry) => entry.patient_id === patient.id);
+      // Only show active waitlist entries (exclude fulfilled, expired)
+      const allPatientEntries = db.waitlist_entries.filter(
+        (entry) => entry.patient_id === patient.id
+      );
+
+      const entries = allPatientEntries.filter(
+        (entry) =>
+          entry.status !== "fulfilled" &&
+          entry.status !== "expired"
+      );
+
+      if (allPatientEntries.length > entries.length) {
+        console.log(
+          `[WAITLIST] ${patient.full_name}: ${allPatientEntries.length} total entries, ${allPatientEntries.filter(e => e.status === "fulfilled").length} fulfilled, ${entries.length} active`
+        );
+      }
+
       if (!entries.length) return null;
       const priority = db.priority_bumps.find(
         (bump) => bump.active && bump.patient_id === patient.id,

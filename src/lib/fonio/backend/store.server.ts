@@ -267,9 +267,21 @@ export async function dispatchNextWave(slotId: string, requestedWaveSize?: numbe
     fillMode: slot.fillMode,
   });
   const waveSize = requestedWaveSize ?? recommendation.waveSize;
+
+  console.log(
+    `[DISPATCH] 🔍 Filtering ${ranked.length} ranked candidates for wave size ${waveSize}...`,
+  );
+
   const waveCandidates = ranked.filter(eligibleForNextWave).slice(0, waveSize);
 
+  console.log(
+    `[DISPATCH] After filtering: ${waveCandidates.length} candidates eligible for next wave`,
+  );
+
   if (!waveCandidates.length) {
+    console.error(
+      `[DISPATCH] ❌ No eligible candidates found. Escalating slot to manual review.`,
+    );
     await updateSlot(normalizedSlotId, {
       status: "ESCALATED",
       needs_attention: true,
@@ -287,6 +299,7 @@ export async function dispatchNextWave(slotId: string, requestedWaveSize?: numbe
       candidate.id,
     );
     return {
+      clinic_id: dbSlot.clinic_id,
       waitlist_entry_id: waitlistEntry.id,
       patient_id: waitlistEntry.patient_id,
       slot_id: dbSlot.id,
@@ -320,11 +333,32 @@ export async function recordCallOutcome(input: CallOutcomeInput) {
   const normalizedSlotId = normalizeSlotId(input.slotId);
   const state = await readDbState();
   const dbSlot = requireDbSlot(state, normalizedSlotId);
-  const waitlistEntry = requireRow(
-    state.waitlistEntries.find((entry) => entry.id === input.candidateId),
-    "waitlist entry",
-    input.candidateId,
-  );
+
+  // Find waitlist entry by candidateId (which may be passed in different formats)
+  // Try to match by looking through call attempts or patient info
+  let waitlistEntry = state.waitlistEntries.find((entry) => entry.id === input.candidateId);
+
+  if (!waitlistEntry) {
+    // Fallback: if we can't find by ID, might need to handle differently
+    console.warn(
+      `[OUTCOME] ⚠️  Could not find waitlist entry with id ${input.candidateId}. This may be a mismatch between candidate IDs.`,
+    );
+    // Try to find latest call attempt for this slot that matches
+    const latestAttempt = state.callAttempts
+      .filter((a) => a.slot_id === normalizedSlotId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .at(0);
+
+    if (latestAttempt) {
+      waitlistEntry = requireRow(
+        state.waitlistEntries.find((entry) => entry.id === latestAttempt.waitlist_entry_id),
+        "waitlist entry",
+        latestAttempt.waitlist_entry_id,
+      );
+    } else {
+      throw new Error(`Could not find waitlist entry for candidateId ${input.candidateId}`);
+    }
+  }
 
   if (input.providerEventId) {
     const existingEvent = state.callAttempts.find(
@@ -368,23 +402,49 @@ export async function recordCallOutcome(input: CallOutcomeInput) {
     throwIfSupabaseError(error, "insert call outcome");
   }
 
+  console.log(
+    `[OUTCOME] 📊 Recording ${input.outcome} for patient ${waitlistEntry.patient_id} on slot ${normalizedSlotId}`,
+  );
+
   await supabase
     .from("patients")
     .update({ last_contacted_at: new Date().toISOString() })
     .eq("id", waitlistEntry.patient_id);
 
+  console.log(
+    `[OUTCOME] ✓ Updated patient last_contacted_at`,
+  );
+
   if (input.outcome === "accepted") {
+    console.log(
+      `[OUTCOME] 🎉 ACCEPTED! Attempting to book slot for patient...`,
+    );
     const booking = await attemptBooking({
       slotId: normalizedSlotId,
       candidateId: input.candidateId,
       waveId: input.waveId,
       source: "call_webhook",
     });
+    console.log(
+      `[OUTCOME] ${booking.ok ? "✓" : "❌"} Booking result: ${booking.message}`,
+    );
     return {
       ok: true,
       booking,
       slot: await requireSlot(normalizedSlotId),
     };
+  }
+
+  if (input.outcome === "declined") {
+    console.log(
+      `[OUTCOME] 👋 DECLINED - Keeping patient in waitlist for future waves`,
+    );
+  }
+
+  if (input.outcome === "no_answer") {
+    console.log(
+      `[OUTCOME] 📴 NO ANSWER - Keeping patient in waitlist for retry`,
+    );
   }
 
   const nextState = await readDbState({ seedIfEmpty: false });
@@ -420,8 +480,14 @@ export async function attemptBooking(input: AttemptBookingInput) {
   }
 
   if (input.source === "call_webhook") {
+    console.log(
+      `[BOOKING] 📞 Validating call_webhook source: checking if wave is active...`,
+    );
     const latestAttempt = latestCallAttemptFor(slot.id, waitlistEntry.id, await readDbState());
     if (slot.status !== "OFFERING" || !latestAttempt) {
+      console.error(
+        `[BOOKING] ❌ Wave is stale or no active call attempt (slot status: ${slot.status}, has attempt: ${!!latestAttempt})`,
+      );
       await markRunnerUp(slot.id, waitlistEntry.id);
       return {
         ok: false,
@@ -430,6 +496,12 @@ export async function attemptBooking(input: AttemptBookingInput) {
         slot: await requireSlot(slot.id),
       };
     }
+  }
+
+  if (input.source === "manual") {
+    console.log(
+      `[BOOKING] 👤 Manual booking: bypassing wave validation (receptionist override)`,
+    );
   }
 
   if (slot.status === "EXPIRED") {
@@ -468,22 +540,56 @@ export async function attemptBooking(input: AttemptBookingInput) {
     };
   }
 
+  console.log(
+    `[BOOKING] 📝 Creating booking record for ${patient.full_name} on slot ${slot.id}`,
+  );
+
   const latestAttempt = latestCallAttemptFor(slot.id, waitlistEntry.id, await readDbState());
   const { error: bookingError } = await supabase.from("bookings").insert({
+    clinic_id: slot.clinic_id,
     patient_id: patient.id,
     slot_id: slot.id,
     waitlist_entry_id: waitlistEntry.id,
     call_attempt_id: latestAttempt?.id ?? null,
     status: "ACTIVE",
     source: toDbBookingSource(input.source),
+    booked_at: new Date().toISOString(),
   });
   throwIfSupabaseError(bookingError, "create booking");
 
-  await Promise.all([
-    supabase.from("waitlist_entries").update({ status: "fulfilled" }).eq("id", waitlistEntry.id),
+  console.log(
+    `[BOOKING] ✓ Booking created. Now updating waitlist & call attempts...`,
+  );
+
+  console.log(
+    `[BOOKING] 📋 Marking all waitlist entries for patient ${patient.id} as fulfilled...`,
+  );
+
+  // Mark ALL waitlist entries for this patient as fulfilled (they got a booking)
+  const { error: updateAllError } = await supabase
+    .from("waitlist_entries")
+    .update({ status: "fulfilled" })
+    .eq("patient_id", patient.id);
+
+  if (updateAllError) {
+    console.error(
+      `[BOOKING] ⚠️  Error updating waitlist entries:`,
+      updateAllError,
+    );
+  } else {
+    console.log(
+      `[BOOKING] ✓ All waitlist entries for patient marked as 'fulfilled'`,
+    );
+  }
+
+  const updates = await Promise.all([
     markBookedAttempt(slot.id, waitlistEntry.id),
     markOtherAcceptedAsRunnerUp(slot.id, patient.id),
   ]);
+
+  console.log(
+    `[BOOKING] 🎉 BOOKING COMPLETE: ${patient.full_name} is now booked for slot ${slot.id}`,
+  );
 
   return {
     ok: true,
@@ -608,7 +714,10 @@ function mapDbStateToBackendState(state: DbState) {
 
 function buildWaitlistForApi(state: DbState) {
   const entriesByPatient = new Map<string, DbWaitlistEntry[]>();
-  for (const entry of state.waitlistEntries) {
+  // Only include active waitlist entries (exclude fulfilled, expired)
+  for (const entry of state.waitlistEntries.filter(
+    (e) => e.status !== "fulfilled" && e.status !== "expired"
+  )) {
     entriesByPatient.set(entry.patient_id, [
       ...(entriesByPatient.get(entry.patient_id) ?? []),
       entry,
@@ -1007,11 +1116,19 @@ async function markRunnerUp(slotId: string, waitlistEntryId: string) {
 async function markBookedAttempt(slotId: string, waitlistEntryId: string) {
   const state = await readDbState();
   const latestAttempt = latestCallAttemptFor(slotId, waitlistEntryId, state);
-  if (!latestAttempt) return;
-  await supabase
+  if (!latestAttempt) {
+    console.log(
+      `[BOOKING] ℹ️  No call attempt found for this booking (probably manual booking) - skipping`,
+    );
+    return;
+  }
+  const { error } = await supabase
     .from("call_attempts")
     .update({ outcome: "booked", ended_at: new Date().toISOString() })
     .eq("id", latestAttempt.id);
+  if (error) {
+    console.error(`[BOOKING] ❌ Failed to mark call attempt as booked:`, error);
+  }
 }
 
 async function markOtherAcceptedAsRunnerUp(slotId: string, winnerPatientId: string) {

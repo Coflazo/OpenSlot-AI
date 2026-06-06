@@ -88,7 +88,11 @@ export function estimateSlotCallSuccess(slot: Slot) {
 export function rankCandidates(slot: Slot): RankedCandidate[] {
   const maxWait = Math.max(...slot.candidates.map((c) => c.waitDays), 1);
 
-  return slot.candidates
+  console.log(
+    `[ALGORITHM] 📊 Ranking ${slot.candidates.length} candidates for slot ${slot.id}`,
+  );
+
+  const ranked = slot.candidates
     .map((candidate) => {
       const wait = (candidate.waitDays / maxWait) * 25;
       const acceptance = acceptanceScore(candidate);
@@ -97,9 +101,15 @@ export function rankCandidates(slot: Slot): RankedCandidate[] {
       const cooldownPenalty =
         candidate.contactStatus === "skipped" || candidate.skipReason ? 30 : 0;
 
+      const score = Math.round(wait + acceptance + priority + preference - cooldownPenalty);
+
+      console.log(
+        `  [${candidate.name}] eligible=${candidate.eligible}, status=${candidate.contactStatus}, score=${score}, wait=${Math.round(wait)}, acceptance=${Math.round(acceptance)}, priority=${priority}, cooldown=${cooldownPenalty}`,
+      );
+
       return {
         ...candidate,
-        score: Math.round(wait + acceptance + priority + preference - cooldownPenalty),
+        score,
         scoreParts: {
           wait: Math.round(wait),
           acceptance,
@@ -114,11 +124,48 @@ export function rankCandidates(slot: Slot): RankedCandidate[] {
       return b.score - a.score;
     })
     .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
+
+  console.log(
+    `[ALGORITHM] ✓ Ranked candidates (${ranked.filter((c) => c.eligible).length} eligible, ${ranked.filter((c) => !c.eligible).length} ineligible)`,
+  );
+
+  return ranked;
 }
 
 export function eligibleForNextWave(candidate: Candidate) {
-  if (!candidate.eligible) return false;
-  return candidate.contactStatus === "not_contacted";
+  if (!candidate.eligible) {
+    console.log(`[ELIGIBILITY] ✗ ${candidate.name}: not eligible (consent/restrictions)`);
+    return false;
+  }
+
+  // Allow retries: not_contacted OR previously tried (no_answer, declined)
+  // Exclude only: accepted, booked, or explicitly skipped with skipReason
+  const canRetry = ![
+    "accepted",
+    "booked",
+    "runner_up",
+  ].includes(candidate.contactStatus);
+
+  const hasSkipReason = !!candidate.skipReason;
+
+  if (!canRetry) {
+    console.log(
+      `[ELIGIBILITY] ✗ ${candidate.name}: already ${candidate.contactStatus}`,
+    );
+    return false;
+  }
+
+  if (hasSkipReason) {
+    console.log(
+      `[ELIGIBILITY] ✗ ${candidate.name}: has skip reason: ${candidate.skipReason}`,
+    );
+    return false;
+  }
+
+  console.log(
+    `[ELIGIBILITY] ✓ ${candidate.name}: eligible for next wave (status: ${candidate.contactStatus})`,
+  );
+  return true;
 }
 
 function acceptanceScore(candidate: Candidate) {

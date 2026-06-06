@@ -237,8 +237,10 @@ function ActionsBar({
   onEscalate: () => Promise<void>;
   onCancelReopen: () => Promise<void>;
 }) {
+  const { waitlist } = useFonio();
   const [bookOpen, setBookOpen] = useState(false);
   const [manualName, setManualName] = useState("");
+  const [filteredSuggestions, setFilteredSuggestions] = useState<typeof waitlist>([]);
 
   return (
     <section className="rounded-md border border-border bg-background p-4">
@@ -278,12 +280,44 @@ function ActionsBar({
                 will fail with a conflict.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <input
-              value={manualName}
-              onChange={(e) => setManualName(e.target.value)}
-              placeholder="Customer name"
-              className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+            <div className="relative mt-2">
+              <input
+                value={manualName}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setManualName(value);
+                  if (value.length > 0) {
+                    const filtered = waitlist.filter((w) =>
+                      w.name.toLowerCase().includes(value.toLowerCase()),
+                    );
+                    setFilteredSuggestions(filtered);
+                  } else {
+                    setFilteredSuggestions([]);
+                  }
+                }}
+                placeholder="Type patient name..."
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              {filteredSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-input bg-card shadow-lg">
+                  {filteredSuggestions.slice(0, 5).map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      onClick={() => {
+                        setManualName(suggestion.name);
+                        setFilteredSuggestions([]);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                    >
+                      <div className="font-medium">{suggestion.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {suggestion.phone} • {suggestion.serviceTypes?.join(", ")}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
