@@ -101,4 +101,10 @@ export const fonioApi = {
       method: "POST",
       body: JSON.stringify({ slotId }),
     }),
+
+  orchestrateCallWave: (slotId: string, waveSize?: number) =>
+    api("/api/calls/orchestrate", {
+      method: "POST",
+      body: JSON.stringify({ slotId, waveSize }),
+    }),
 };

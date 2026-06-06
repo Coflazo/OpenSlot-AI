@@ -6,6 +6,7 @@ import {
   estimateSlotCallSuccess,
   rankCandidates,
 } from "./algorithm";
+import { fetchWaitlistEntries, fetchSlots, recordCallAttempt, createBooking } from "../../supabase.server";
 
 type BookingSource = "call_webhook" | "manual" | "seed";
 
@@ -34,9 +35,25 @@ export interface SlotOpenedInput {
   fillMode?: Slot["fillMode"];
 }
 
-const slots: Slot[] = clone(initialSlots);
-const waitlist: WaitlistEntry[] = clone(initialWaitlist);
+// TODO: Initialize from Supabase on server startup
+// For now, using mock data as fallback
+let slots: Slot[] = clone(initialSlots);
+let waitlist: WaitlistEntry[] = clone(initialWaitlist);
 const processedEvents = new Set<string>();
+
+/**
+ * Initialize data from Supabase
+ * Call this once on server startup
+ */
+export async function initializeFromSupabase() {
+  try {
+    console.log("[Store] Initializing from Supabase...");
+    // TODO: Implement full data transformation from Supabase
+    // For now, keeping mock data as fallback
+  } catch (error) {
+    console.error("[Store] Failed to initialize from Supabase:", error);
+  }
+}
 
 export function getBackendState() {
   return {

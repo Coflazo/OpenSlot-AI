@@ -384,6 +384,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w1",
     name: "Maria Schmidt",
+    phone: "+34612345671",
     preferredTimes: "Tue/Thu mornings",
     serviceTypes: ["CT Scan", "MRI"],
     waitDays: 21,
@@ -402,6 +403,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w2",
     name: "Jonas Pirker",
+    phone: "+34612345672",
     preferredTimes: "Weekday afternoons",
     serviceTypes: ["CT Scan"],
     waitDays: 16,
@@ -421,6 +423,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w3",
     name: "Anna Berger",
+    phone: "+34612345673",
     preferredTimes: "Tuesday mornings",
     serviceTypes: ["CT Scan"],
     waitDays: 14,
@@ -434,6 +437,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w4",
     name: "Tobias Lang",
+    phone: "+34612345674",
     preferredTimes: "Mornings",
     serviceTypes: ["CT Scan", "X-Ray"],
     waitDays: 19,
@@ -447,6 +451,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w5",
     name: "Klara Fuchs",
+    phone: "+34612345675",
     preferredTimes: "Anytime",
     serviceTypes: ["CT Scan"],
     waitDays: 22,
@@ -460,6 +465,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w6",
     name: "Eva Reiter",
+    phone: "+34612345676",
     preferredTimes: "Midday",
     serviceTypes: ["Follow-up", "Consultation"],
     waitDays: 18,
@@ -473,6 +479,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w7",
     name: "Helga Stein",
+    phone: "+34612345677",
     preferredTimes: "Tue/Wed afternoons",
     serviceTypes: ["Consultation"],
     waitDays: 25,
@@ -487,6 +494,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w8",
     name: "Daniel Brunner",
+    phone: "+34612345678",
     preferredTimes: "Late morning",
     serviceTypes: ["Follow-up"],
     waitDays: 12,
@@ -500,6 +508,7 @@ export const initialWaitlist: WaitlistEntry[] = [
   {
     id: "w9",
     name: "Markus Wolf",
+    phone: "+34612345679",
     preferredTimes: "Mornings",
     serviceTypes: ["CT Scan"],
     waitDays: 11,

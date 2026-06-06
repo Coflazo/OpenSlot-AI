@@ -184,6 +184,9 @@ function CandidateDetail({ entry }: { entry: WaitlistEntry | null }) {
         </div>
       </div>
       <div className="space-y-4 p-4 text-sm">
+        <Section label="Phone number">
+          <div className="font-mono text-base font-semibold">{entry.phone}</div>
+        </Section>
         <Section label="Contact preferences">
           <p>Preferred times: {entry.preferredTimes}</p>
           <p>Consent: {entry.consent}</p>

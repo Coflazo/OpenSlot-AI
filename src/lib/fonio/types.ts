@@ -95,6 +95,7 @@ export interface Alert {
 export interface WaitlistEntry {
   id: string;
   name: string;
+  phone: string;
   preferredTimes: string;
   serviceTypes: string[];
   waitDays: number;

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { calculateWaveSize } from "./algorithm";
+import { orchestrateCallWave } from "./call-orchestrator.server";
 import {
   attemptBooking,
   cancelAndReopen,
@@ -74,6 +75,11 @@ const escalateSchema = slotActionSchema.extend({
   reason: z.string().optional(),
 });
 
+const callWaveSchema = z.object({
+  slotId: z.string().min(1),
+  waveSize: z.number().int().min(1).optional(),
+});
+
 export async function handleFonioApiRequest(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/")) return undefined;
@@ -142,6 +148,12 @@ export async function handleFonioApiRequest(request: Request): Promise<Response 
     if (request.method === "POST" && url.pathname === "/api/slots/cancel-and-reopen") {
       const { slotId } = slotActionSchema.parse(await readJson(request));
       return json(cancelAndReopen(slotId));
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/calls/orchestrate") {
+      const data = callWaveSchema.parse(await readJson(request));
+      const result = await orchestrateCallWave(data);
+      return json(result);
     }
 
     return json({ ok: false, error: "Endpoint not found." }, 404);
