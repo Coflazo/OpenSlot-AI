@@ -42,11 +42,48 @@ function Index() {
 
 function FonioApp() {
   const [tab, setTab] = useState("today");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const { selectSlot } = useFonio();
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <TopBar />
+      <TopBar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+
+      {/* Mobile Sidebar */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 top-14 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+      <div
+        className={`fixed left-0 top-14 z-50 h-[calc(100vh-56px)] w-64 bg-card transition-transform duration-300 lg:hidden ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <nav className="flex flex-col gap-1 border-b border-border p-4">
+          {[
+            ["today", "📅 Today"],
+            ["waitlist", "⏳ Waitlist"],
+            ["analytics", "📊 Analytics"],
+            ["settings", "⚙️ Settings"],
+          ].map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => {
+                setTab(v);
+                setSidebarOpen(false);
+              }}
+              className={`rounded-lg px-4 py-2 text-left text-sm font-medium transition-colors ${
+                tab === v
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <Tabs value={tab} onValueChange={setTab} className="flex flex-1 flex-col overflow-hidden">
         <div className="border-b border-border bg-card px-4">
           <TabsList className="h-10 bg-transparent p-0">
@@ -71,20 +108,43 @@ function FonioApp() {
           value="today"
           className="m-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
         >
-          <div className="flex h-full flex-col overflow-auto 2xl:grid 2xl:grid-cols-[minmax(760px,1fr)_minmax(420px,0.8fr)_340px] 2xl:grid-rows-[minmax(0,1fr)] 2xl:overflow-hidden 2xl:divide-x 2xl:divide-border">
-            <TodayBoard />
-            <SlotDetailPanel />
-            <AttentionRail
-              onOpenSlot={(id) => {
-                selectSlot(id);
-                setTab("today");
-                window.requestAnimationFrame(() => {
-                  document
-                    .getElementById("slot-detail-panel")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                });
+          <div className="relative flex h-full flex-col">
+            {/* Toggle Buttons */}
+            <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2">
+              <button
+                onClick={() => setShowRightPanel(!showRightPanel)}
+                className="rounded px-2 py-1 text-sm font-medium transition-colors hover:bg-muted"
+                title={showRightPanel ? "Hide alerts" : "Show alerts"}
+              >
+                {showRightPanel ? "✓ Alerts" : "✕ Alerts"}
+              </button>
+            </div>
+
+            {/* Content Grid */}
+            <div
+              className="flex flex-1 overflow-hidden 2xl:grid 2xl:grid-rows-[minmax(0,1fr)] 2xl:overflow-hidden 2xl:divide-x 2xl:divide-border"
+              style={{
+                gridTemplateColumns: `minmax(760px,1fr) minmax(420px,0.8fr) ${showRightPanel ? "340px" : "0"}`,
               }}
-            />
+            >
+              <TodayBoard />
+              <SlotDetailPanel />
+              {showRightPanel && (
+                <div className="overflow-hidden">
+                    <AttentionRail
+                      onOpenSlot={(id) => {
+                        selectSlot(id);
+                        setTab("today");
+                        window.requestAnimationFrame(() => {
+                          document
+                            .getElementById("slot-detail-panel")
+                            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        });
+                      }}
+                    />
+                </div>
+              )}
+            </div>
           </div>
         </TabsContent>
         <TabsContent

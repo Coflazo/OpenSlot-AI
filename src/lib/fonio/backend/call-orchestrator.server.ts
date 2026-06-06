@@ -9,7 +9,7 @@ import {
   getBackendState,
   getSlot,
   recordCallOutcome,
-} from "./supabase-store.server";
+} from "./store.server";
 import type { CallOutcome, Candidate, Slot } from "../types";
 
 interface CallOrchestrationRequest {

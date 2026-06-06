@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { useMemo } from "react";
+import { Clock, Users, TrendingUp, Phone } from "lucide-react";
 import { useFonio } from "@/lib/fonio/store";
 import type { OpenSlotDbState, SlotView } from "@/lib/fonio/types";
 
@@ -28,97 +29,120 @@ export function AnalyticsTab() {
   const analyticsData = useMemo(() => buildAnalyticsData(db, slots), [db, slots]);
 
   return (
-    <div className="h-full overflow-y-auto bg-background p-5">
-      <div className="grid grid-cols-4 gap-3">
-        {analyticsData.metrics.map((m) => (
-          <div key={m.label} className="rounded-md border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{m.label}</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight">{m.value}</p>
-            <p className="mt-1 text-xs text-success-soft-foreground">{m.delta}</p>
-          </div>
-        ))}
+    <div className="h-full overflow-y-auto bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 p-8">
+      {/* Header */}
+      <div className="mb-10">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+          Automation Performance
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400">
+          Real-time insights on your automated call system for slot recovery
+        </p>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <ChartCard title="Fill rate over time">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={analyticsData.fillRateOverTime}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} unit="%" />
-              <Tooltip />
+      {/* Primary KPIs */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <MetricCard
+          icon={TrendingUp}
+          label="Slots Recovered"
+          value={analyticsData.metrics[0].value}
+          subtext="Filled from cancellations"
+          highlight={true}
+        />
+        <MetricCard
+          icon={Phone}
+          label="Call Attempts"
+          value={analyticsData.metrics[7].value}
+          subtext="Automated outreach"
+        />
+        <MetricCard
+          icon={Users}
+          label="Acceptance Rate"
+          value={analyticsData.metrics[3].value}
+          subtext="Successful conversions"
+        />
+        <MetricCard
+          icon={Clock}
+          label="Avg Lead Time"
+          value={analyticsData.metrics[2].value}
+          subtext="Before appointment"
+        />
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-2 gap-6 mb-8">
+        {/* Fill Rate - Primary Chart */}
+        <div className="col-span-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+            Fill Rate Trend
+          </h2>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={analyticsData.fillRateOverTime} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+              <defs>
+                <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
+              <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
+              <YAxis stroke="#94a3b8" fontSize={12} unit="%" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1e293b",
+                  border: "1px solid #475569",
+                  borderRadius: "8px",
+                }}
+                labelStyle={{ color: "#f1f5f9" }}
+              />
               <Line
                 type="monotone"
                 dataKey="rate"
-                stroke="var(--primary)"
-                strokeWidth={2}
-                dot={{ r: 3 }}
+                stroke="#3b82f6"
+                strokeWidth={3}
+                dot={{ fill: "#3b82f6", r: 4 }}
+                activeDot={{ r: 6 }}
               />
             </LineChart>
           </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Slots recovered by provider">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={analyticsData.recoveredByProvider}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="provider" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip />
-              <Bar dataKey="count" fill="var(--info)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Decline reasons">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={analyticsData.declineReasons} layout="vertical">
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis
-                type="category"
-                dataKey="reason"
-                stroke="var(--muted-foreground)"
-                fontSize={12}
-                width={140}
-              />
-              <Tooltip />
-              <Bar dataKey="count" fill="var(--warning)" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Contact volume by day">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={analyticsData.contactVolumeByDay}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip />
-              <Bar dataKey="calls" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
+        </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <ChartCard title="Escalations by reason">
-          <ul className="divide-y divide-border">
-            {analyticsData.escalationsByReason.map((r) => (
-              <li key={r.reason} className="flex items-center justify-between py-2 text-sm">
-                <span>{r.reason}</span>
-                <span className="font-mono text-muted-foreground">{r.count}</span>
-              </li>
-            ))}
-          </ul>
+        {/* Contact Volume */}
+        <ChartCard title="Call Volume by Day">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={analyticsData.contactVolumeByDay}>
+              <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
+              <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
+              <YAxis stroke="#94a3b8" fontSize={12} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1e293b",
+                  border: "1px solid #475569",
+                  borderRadius: "8px",
+                }}
+                labelStyle={{ color: "#f1f5f9" }}
+              />
+              <Bar dataKey="calls" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="What we're seeing">
-          <ul className="space-y-2 text-sm">
-            {analyticsData.insights.map((i) => (
-              <li key={i} className="flex gap-2">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground" />
-                {i}
-              </li>
+
+        {/* Call Outcomes */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+            Call Outcomes
+          </h3>
+          <div className="space-y-3">
+            {analyticsData.declineReasons.map((outcome) => (
+              <div key={outcome.reason} className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 dark:text-slate-400">{outcome.reason}</span>
+                <span className="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-sm font-semibold">
+                  {outcome.count}
+                </span>
+              </div>
             ))}
-          </ul>
-        </ChartCard>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -130,11 +154,8 @@ function buildAnalyticsData(db: OpenSlotDbState, slots: SlotView[]): AnalyticsDa
   const callAttempts = db.call_attempts;
   const declinedCalls = callAttempts.filter((attempt) => attempt.outcome === "declined");
   const noAnswerCalls = callAttempts.filter((attempt) => attempt.outcome === "no_answer");
-  const runnerUpBumps = db.priority_bumps.filter((bump) => bump.reason === "runner_up");
-  const revenueCents = bookedSlots.reduce(
-    (total, slot) => total + (slot.service.value_cents ?? 0),
-    0,
-  );
+  const acceptedCalls = callAttempts.filter((attempt) => attempt.outcome === "accepted");
+
   const averageRecoveredLead = average(
     bookedSlots
       .map((slot) => slot.recoveredMinBeforeStart)
@@ -159,9 +180,9 @@ function buildAnalyticsData(db: OpenSlotDbState, slots: SlotView[]): AnalyticsDa
         delta: "Before appointment start",
       },
       {
-        label: "Revenue protected (est.)",
-        value: formatCurrency(revenueCents),
-        delta: "From booked service value",
+        label: "Acceptance rate",
+        value: `${Math.round((acceptedCalls.length / callCount) * 100)}%`,
+        delta: `${acceptedCalls.length}/${callAttempts.length} calls`,
       },
       {
         label: "No-answer rate",
@@ -174,14 +195,14 @@ function buildAnalyticsData(db: OpenSlotDbState, slots: SlotView[]): AnalyticsDa
         delta: `${declinedCalls.length}/${callAttempts.length} calls`,
       },
       {
-        label: "Avg contacts per recovered slot",
-        value: bookedSlots.length ? (callAttempts.length / bookedSlots.length).toFixed(1) : "-",
-        delta: "Fonio attempts / bookings",
+        label: "Avg contacts per slot",
+        value: fillableSlots.length ? (callAttempts.length / fillableSlots.length).toFixed(1) : "-",
+        delta: "Fonio attempts / total slots",
       },
       {
-        label: "Runner-up priority active",
-        value: String(runnerUpBumps.filter((bump) => bump.active).length),
-        delta: `${runnerUpBumps.length} runner-up events`,
+        label: "Total call attempts",
+        value: String(callAttempts.length),
+        delta: "Across all slots",
       },
     ],
     fillRateOverTime: groupFillRateByDay(slots),
@@ -189,7 +210,7 @@ function buildAnalyticsData(db: OpenSlotDbState, slots: SlotView[]): AnalyticsDa
     declineReasons: groupOutcomes(callAttempts),
     contactVolumeByDay: groupCallsByDay(callAttempts),
     escalationsByReason: groupEscalations(slots),
-    insights: buildInsights(slots, db),
+    insights: buildInsights(slots),
   };
 }
 
@@ -251,19 +272,18 @@ function groupEscalations(slots: SlotView[]) {
   return Array.from(grouped.entries()).map(([reason, count]) => ({ reason, count }));
 }
 
-function buildInsights(slots: SlotView[], db: OpenSlotDbState) {
+function buildInsights(slots: SlotView[]) {
   const offering = slots.filter((slot) => slot.status === "OFFERING").length;
   const open = slots.filter((slot) => slot.status === "OPEN").length;
-  const runnerUps = db.priority_bumps.filter(
-    (bump) => bump.reason === "runner_up" && bump.active,
-  ).length;
+  const escalated = slots.filter((slot) => slot.status === "ESCALATED").length;
+  const booked = slots.filter((slot) => slot.status === "BOOKED").length;
 
   return [
     `${offering} slots currently have active outreach waves.`,
     `${open} slots are open and available for backend ranking.`,
-    runnerUps
-      ? `${runnerUps} runner-up priority boosts are active for future eligible openings.`
-      : "No runner-up priority boosts are currently active.",
+    escalated > 0
+      ? `${escalated} slots need attention (escalated).`
+      : `${booked} slots successfully booked.`,
   ];
 }
 
@@ -272,22 +292,52 @@ function average(values: number[]) {
   return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
-function formatCurrency(cents: number) {
-  return new Intl.NumberFormat("de-AT", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(cents / 100);
-}
 
 function dayLabel(timestamp: string) {
   return new Intl.DateTimeFormat("en", { weekday: "short" }).format(new Date(timestamp));
 }
 
+interface MetricCardProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  subtext: string;
+  highlight?: boolean;
+}
+
+function MetricCard({ icon: Icon, label, value, subtext, highlight }: MetricCardProps) {
+  return (
+    <div
+      className={`rounded-lg border p-6 transition-all ${
+        highlight
+          ? "border-blue-200 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20"
+          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow-md"
+      } shadow-sm`}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div
+          className={`p-2 rounded-lg ${
+            highlight
+              ? "bg-blue-200 dark:bg-blue-700"
+              : "bg-slate-100 dark:bg-slate-700"
+          }`}
+        >
+          <Icon className={`w-5 h-5 ${highlight ? "text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-300"}`} />
+        </div>
+      </div>
+      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{label}</p>
+      <p className={`text-3xl font-bold mb-2 ${highlight ? "text-blue-700 dark:text-blue-300" : "text-slate-900 dark:text-white"}`}>
+        {value}
+      </p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{subtext}</p>
+    </div>
+  );
+}
+
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-card p-4">
-      <h3 className="mb-3 text-sm font-semibold">{title}</h3>
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+      <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
       {children}
     </div>
   );

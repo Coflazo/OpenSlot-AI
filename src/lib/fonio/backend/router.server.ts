@@ -14,7 +14,7 @@ import {
   openSlot,
   recordCallOutcome,
   setSlotPaused,
-} from "./supabase-store.server";
+} from "./store.server";
 
 const waveSizeSchema = z.object({
   p: z.number().min(0).max(1).default(0.3),
@@ -167,10 +167,17 @@ export async function handleFonioApiRequest(request: Request): Promise<Response 
     return json({ ok: false, error: "Endpoint not found." }, 404);
   } catch (error) {
     const status = error != null && typeof error === "object" && "statusCode" in error ? 404 : 400;
+    const errorMessage = error instanceof Error ? error.message : "Request failed.";
+    console.error("[Router] Error:", {
+      path: url.pathname,
+      method: request.method,
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Request failed.",
+        error: errorMessage,
       },
       status,
     );

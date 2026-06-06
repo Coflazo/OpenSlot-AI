@@ -443,6 +443,9 @@ export interface WaitlistView {
   entries: WaitlistEntryRow[];
   id: string;
   name: string;
+  phone: string;
+  email: string | null;
+  smsConsent: ConsentStatus;
   preferredTimes: string;
   serviceTypes: string[];
   waitDays: number;
@@ -454,6 +457,9 @@ export interface WaitlistView {
   eligibilityNotes: string;
   status: "active" | "paused" | "snoozed";
   notes?: string;
+  slotId: string | null;
+  hardDeadlineAt: string | null;
+  snoozedUntil: string | null;
   recentContacts?: { at: string; outcome: CallOutcome; slot: string }[];
   runnerUpHistory?: { at: string; slot: string; reason: string }[];
   upcomingMatches?: string[];
@@ -463,6 +469,8 @@ export interface WaitlistEntry {
   id: string;
   name: string;
   phone: string;
+  email: string | null;
+  smsConsent: ConsentStatus;
   preferredTimes: string;
   serviceTypes: string[];
   waitDays: number;
@@ -474,6 +482,9 @@ export interface WaitlistEntry {
   eligibilityNotes: string;
   status: "active" | "paused" | "snoozed";
   notes?: string;
+  slotId: string | null;
+  hardDeadlineAt: string | null;
+  snoozedUntil: string | null;
   recentContacts?: { at: string; outcome: CallOutcome; slot: string }[];
   runnerUpHistory?: { at: string; slot: string; reason: string }[];
   upcomingMatches?: string[];

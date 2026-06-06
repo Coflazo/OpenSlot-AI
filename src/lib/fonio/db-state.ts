@@ -76,9 +76,9 @@ export function createOpenSlotDbFromLegacy(
       clinic_id: CLINIC_ID,
       external_patient_id: null,
       full_name: name,
-      phone_e164: `+155501${String(index + 1).padStart(4, "0")}`,
-      email: null,
-      sms_consent: waitlistEntry?.consent ?? "granted",
+      phone_e164: waitlistEntry?.phone ?? `+155501${String(index + 1).padStart(4, "0")}`,
+      email: waitlistEntry?.email ?? null,
+      sms_consent: waitlistEntry?.smsConsent ?? waitlistEntry?.consent ?? "granted",
       voice_consent: waitlistEntry?.consent ?? "granted",
       vip_priority: waitlistEntry?.priorityBoost?.startsWith("VIP") ? 50 : 0,
       max_contacts_per_week_override: waitlistEntry?.contactLimitPerWeek ?? null,
@@ -455,6 +455,9 @@ export function buildWaitlistViews(db: OpenSlotDbState): WaitlistView[] {
         entries,
         id: patient.id,
         name: patient.full_name,
+        phone: patient.phone_e164,
+        email: patient.email,
+        smsConsent: patient.sms_consent,
         preferredTimes: "Stored in patient_preferences",
         serviceTypes,
         waitDays: Math.max(...entries.map((entry) => daysBetween(entry.joined_at, db.now))),
@@ -479,6 +482,9 @@ export function buildWaitlistViews(db: OpenSlotDbState): WaitlistView[] {
             ? "snoozed"
             : "paused",
         notes: entries.find((entry) => entry.notes)?.notes ?? undefined,
+        slotId: entries[0]?.id ?? null,
+        hardDeadlineAt: entries[0]?.hard_deadline_at ?? null,
+        snoozedUntil: entries[0]?.snoozed_until ?? null,
       } satisfies WaitlistView;
     })
     .filter(Boolean)

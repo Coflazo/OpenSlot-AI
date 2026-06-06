@@ -1,13 +1,19 @@
-import { Activity, PauseCircle, PlayCircle, Radio } from "lucide-react";
+import { Activity, PauseCircle, PlayCircle, Radio, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useFonio } from "@/lib/fonio/store";
 import { workspaceName } from "@/lib/fonio/mock-data";
 
-export function TopBar() {
+export function TopBar({
+  sidebarOpen,
+  setSidebarOpen,
+}: {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}) {
   const { pausedNewWaves, togglePausedNewWaves } = useFonio();
-  const today = new Date().toLocaleDateString(undefined, {
+  const today = new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -15,6 +21,16 @@ export function TopBar() {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="h-8 w-8 p-0 lg:hidden"
+        title="Toggle menu"
+      >
+        {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </Button>
+
       <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Radio className="h-4 w-4" />

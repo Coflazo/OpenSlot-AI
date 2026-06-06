@@ -4,17 +4,52 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import type { BookingSource, CallOutcome } from "./fonio/types";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseKey = supabaseServiceRoleKey ?? process.env.VITE_SUPABASE_ANON_KEY;
+// Read .env.local to get SUPABASE_SERVICE_ROLE_KEY (Vite doesn't expose non-VITE_ variables)
+function loadEnv() {
+  try {
+    const envPath = resolve(process.cwd(), ".env.local");
+    const envContent = readFileSync(envPath, "utf-8");
+    const env: Record<string, string> = {};
 
-if (!supabaseUrl || !supabaseKey) {
+    for (const line of envContent.split("\n")) {
+      if (!line.trim() || line.startsWith("#")) continue;
+      const [key, ...valueParts] = line.split("=");
+      const value = valueParts.join("=").trim();
+      env[key.trim()] = value;
+    }
+
+    return env;
+  } catch {
+    return {};
+  }
+}
+
+const envFile = loadEnv();
+const supabaseUrl = process.env.VITE_SUPABASE_URL || envFile.VITE_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || envFile.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || envFile.VITE_SUPABASE_ANON_KEY;
+
+// Prefer service role key for server operations (bypasses RLS)
+const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
+
+if (!supabaseUrl) {
+  throw new Error("Missing VITE_SUPABASE_URL in .env.local");
+}
+
+if (!supabaseKey) {
   throw new Error(
-    "Missing Supabase credentials. Add VITE_SUPABASE_URL plus SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY to .env.local",
+    "Missing Supabase credentials. Add SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY to .env.local",
   );
 }
+
+console.log("[Supabase] Initializing with:", {
+  url: supabaseUrl?.substring(0, 30) + "...",
+  authMode: supabaseServiceRoleKey ? "✅ service-role" : "⚠️  anon-key",
+});
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
