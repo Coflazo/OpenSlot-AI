@@ -29,10 +29,13 @@ http://localhost:8080/
 ```bash
 npm run build
 npm run lint
+npm test
 npm run format
 ```
 
 `npm run lint` currently reports only fast-refresh warnings from generated shadcn/Lovable UI files.
+`npm test` runs pressure tests for wave sizing, ranking, booking conflicts, duplicate webhooks,
+pause semantics, stale waves, and endpoint contract smoke checks.
 
 ## Notes
 
@@ -73,4 +76,10 @@ The teammate-facing calendar/calling contract is documented in:
 
 ```text
 docs/friend-integration-contract.md
+```
+
+The Supabase/Postgres data model is documented in:
+
+```text
+docs/supabase-data-model.md
 ```

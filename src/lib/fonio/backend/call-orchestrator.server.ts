@@ -6,11 +6,11 @@
 import { makeOutboundCall } from "./fonio-client.server";
 import {
   dispatchNextWave,
+  getBackendState,
   getSlot,
   recordCallOutcome,
-  getBackendState,
-} from "./store.server";
-import type { Candidate } from "../types";
+} from "./supabase-store.server";
+import type { CallOutcome, Candidate, Slot } from "../types";
 
 interface CallOrchestrationRequest {
   slotId: string;
@@ -38,7 +38,7 @@ interface CallResult {
  * Orchestrate the complete call workflow for a slot
  */
 export async function orchestrateCallWave(
-  request: CallOrchestrationRequest
+  request: CallOrchestrationRequest,
 ): Promise<CallOrchestrationResult> {
   const { slotId, waveSize } = request;
 
@@ -46,7 +46,7 @@ export async function orchestrateCallWave(
 
   try {
     // Step 1: Get the slot
-    const slot = getSlot(slotId);
+    const slot = await getSlot(slotId);
     if (!slot) {
       return {
         success: false,
@@ -58,9 +58,19 @@ export async function orchestrateCallWave(
     }
 
     // Step 2: Dispatch the wave to get candidates
-    const dispatchResult = dispatchNextWave(slotId, waveSize);
+    const dispatchResult = await dispatchNextWave(slotId, waveSize);
+    if (!dispatchResult.ok) {
+      return {
+        success: false,
+        slotId,
+        candidatesCalled: [],
+        callResults: [],
+        message: dispatchResult.reason,
+      };
+    }
+
     console.log(
-      `[ORCHESTRATOR] Wave dispatched with ${dispatchResult.candidates.length} candidates`
+      `[ORCHESTRATOR] Wave dispatched with ${dispatchResult.candidates.length} candidates`,
     );
 
     // Step 3: Make calls to candidates
@@ -73,11 +83,12 @@ export async function orchestrateCallWave(
       candidatesCalled.push(candidate.id);
 
       // Record the call outcome
-      const outcome = callResult.outcome || "no_answer";
-      recordCallOutcome({
+      const outcome: CallOutcome =
+        callResult.outcome === "error" ? "no_answer" : (callResult.outcome ?? "no_answer");
+      await recordCallOutcome({
         slotId,
         candidateId: candidate.id,
-        outcome: outcome as any,
+        outcome,
         waveId: dispatchResult.wave?.id,
       });
 
@@ -110,12 +121,9 @@ export async function orchestrateCallWave(
 /**
  * Make a call to a single candidate
  */
-async function callCandidate(
-  candidate: Candidate,
-  slot: any
-): Promise<CallResult> {
+async function callCandidate(candidate: Candidate, slot: Slot): Promise<CallResult> {
   // Get phone number from waitlist
-  const waitlist = getBackendState().waitlist;
+  const waitlist = (await getBackendState()).waitlist;
   const waitlistEntry = waitlist.find((w) => w.id === candidate.id);
 
   if (!waitlistEntry) {
@@ -171,9 +179,7 @@ async function callCandidate(
       phoneNumber,
       callStatus: "success",
       outcome: accepted ? "accepted" : "declined",
-      message: accepted
-        ? "Candidate accepted to cover slot"
-        : "Candidate declined",
+      message: accepted ? "Candidate accepted to cover slot" : "Candidate declined",
     };
   } catch (error) {
     console.error(`[ORCHESTRATOR] Error calling ${candidate.name}:`, error);
@@ -187,4 +193,3 @@ async function callCandidate(
     };
   }
 }
-

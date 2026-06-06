@@ -71,13 +71,18 @@ function FonioApp() {
           value="today"
           className="m-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
         >
-          <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_340px] divide-x divide-border">
+          <div className="flex h-full flex-col overflow-auto 2xl:grid 2xl:grid-cols-[minmax(760px,1fr)_minmax(420px,0.8fr)_340px] 2xl:grid-rows-[minmax(0,1fr)] 2xl:overflow-hidden 2xl:divide-x 2xl:divide-border">
             <TodayBoard />
             <SlotDetailPanel />
             <AttentionRail
               onOpenSlot={(id) => {
                 selectSlot(id);
                 setTab("today");
+                window.requestAnimationFrame(() => {
+                  document
+                    .getElementById("slot-detail-panel")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                });
               }}
             />
           </div>

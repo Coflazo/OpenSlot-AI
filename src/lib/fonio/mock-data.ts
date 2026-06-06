@@ -200,7 +200,7 @@ export const initialSlots: Slot[] = [
     startsInMin: 135,
     provider: "Dr. Novak",
     service: "Follow-up",
-    status: "OPEN",
+    status: "OFFERING",
     fillMode: "Patient",
     waveSize: 1,
     attempts: 1,

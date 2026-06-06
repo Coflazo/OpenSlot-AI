@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { calculateWaveSize } from "./algorithm";
 import { orchestrateCallWave } from "./call-orchestrator.server";
+import { supabaseAuthMode } from "../../supabase.server";
 import {
   attemptBooking,
   cancelAndReopen,
@@ -13,7 +14,7 @@ import {
   openSlot,
   recordCallOutcome,
   setSlotPaused,
-} from "./store.server";
+} from "./supabase-store.server";
 
 const waveSizeSchema = z.object({
   p: z.number().min(0).max(1).default(0.3),
@@ -90,24 +91,29 @@ export async function handleFonioApiRequest(request: Request): Promise<Response 
 
   try {
     if (request.method === "GET" && url.pathname === "/api/health") {
-      return json({ ok: true, service: "openslot-ai", mode: "local-scaffold" });
+      return json({
+        ok: true,
+        service: "openslot-ai",
+        mode: "supabase-db",
+        supabaseAuthMode,
+      });
     }
 
     if (request.method === "GET" && url.pathname === "/api/slots") {
-      return json({ slots: getBackendState().slots });
+      return json({ slots: (await getBackendState()).slots });
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/api/slots/")) {
       const slotId = decodeURIComponent(url.pathname.replace("/api/slots/", ""));
-      return json({ slot: getSlot(slotId) });
+      return json({ slot: await getSlot(slotId) });
     }
 
     if (request.method === "GET" && url.pathname === "/api/waitlist") {
-      return json({ waitlist: getBackendState().waitlist });
+      return json({ waitlist: (await getBackendState()).waitlist });
     }
 
     if (request.method === "POST" && url.pathname === "/api/slots/opened") {
-      return json({ slot: openSlot(slotOpenedSchema.parse(await readJson(request))) }, 201);
+      return json({ slot: await openSlot(slotOpenedSchema.parse(await readJson(request))) }, 201);
     }
 
     if (request.method === "POST" && url.pathname === "/api/algorithm/wave-size") {
@@ -118,36 +124,38 @@ export async function handleFonioApiRequest(request: Request): Promise<Response 
 
     if (request.method === "POST" && url.pathname === "/api/algorithm/rank") {
       const { slotId } = slotActionSchema.parse(await readJson(request));
-      return json(getRankedSlot(slotId));
+      return json(await getRankedSlot(slotId));
     }
 
     if (request.method === "POST" && url.pathname === "/api/waves/dispatch") {
       return json(
-        dispatchNextWave(...toDispatchArgs(dispatchWaveSchema.parse(await readJson(request)))),
+        await dispatchNextWave(
+          ...toDispatchArgs(dispatchWaveSchema.parse(await readJson(request))),
+        ),
       );
     }
 
     if (request.method === "POST" && url.pathname === "/api/calls/outcome") {
-      return json(recordCallOutcome(callOutcomeSchema.parse(await readJson(request))));
+      return json(await recordCallOutcome(callOutcomeSchema.parse(await readJson(request))));
     }
 
     if (request.method === "POST" && url.pathname === "/api/bookings/attempt") {
-      return json(attemptBooking(attemptBookingSchema.parse(await readJson(request))));
+      return json(await attemptBooking(attemptBookingSchema.parse(await readJson(request))));
     }
 
     if (request.method === "POST" && url.pathname === "/api/slots/pause-new-waves") {
       const data = pauseSchema.parse(await readJson(request));
-      return json(setSlotPaused(data.slotId, data.paused));
+      return json(await setSlotPaused(data.slotId, data.paused));
     }
 
     if (request.method === "POST" && url.pathname === "/api/slots/escalate") {
       const data = escalateSchema.parse(await readJson(request));
-      return json(escalateSlot(data.slotId, data.reason));
+      return json(await escalateSlot(data.slotId, data.reason));
     }
 
     if (request.method === "POST" && url.pathname === "/api/slots/cancel-and-reopen") {
       const { slotId } = slotActionSchema.parse(await readJson(request));
-      return json(cancelAndReopen(slotId));
+      return json(await cancelAndReopen(slotId));
     }
 
     if (request.method === "POST" && url.pathname === "/api/calls/orchestrate") {

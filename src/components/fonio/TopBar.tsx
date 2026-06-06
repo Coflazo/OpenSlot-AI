@@ -1,4 +1,6 @@
 import { Activity, PauseCircle, PlayCircle, Radio } from "lucide-react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { useFonio } from "@/lib/fonio/store";
 import { workspaceName } from "@/lib/fonio/mock-data";
@@ -38,7 +40,15 @@ export function TopBar() {
         <Button
           size="sm"
           variant={pausedNewWaves ? "default" : "outline"}
-          onClick={togglePausedNewWaves}
+          onClick={async () => {
+            try {
+              const response = await togglePausedNewWaves();
+              if (response.ok) toast.success(response.message);
+              else toast.error(response.message);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Could not update wave pause.");
+            }
+          }}
           title={
             pausedNewWaves
               ? "Resume dispatching new call waves"

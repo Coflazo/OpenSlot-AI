@@ -4,17 +4,26 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import type { BookingSource, CallOutcome } from "./fonio/types";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = supabaseServiceRoleKey ?? process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    "Missing Supabase credentials. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local"
+    "Missing Supabase credentials. Add VITE_SUPABASE_URL plus SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY to .env.local",
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+});
+
+export const supabaseAuthMode = supabaseServiceRoleKey ? "service-role" : "anon-key-rls-policy";
 
 /**
  * Fetch all patients from Supabase
@@ -68,17 +77,13 @@ export async function fetchWaitlistEntries() {
 /**
  * Create a booking in Supabase
  */
-export async function createBooking(
-  patientId: string,
-  slotId: string,
-  source: string
-) {
+export async function createBooking(patientId: string, slotId: string, source: BookingSource) {
   const { data, error } = await supabase
     .from("bookings")
     .insert({
       patient_id: patientId,
       slot_id: slotId,
-      source: source as any,
+      source,
       status: "ACTIVE",
     })
     .select()
@@ -99,7 +104,7 @@ export async function recordCallAttempt(
   patientId: string,
   slotId: string,
   waitlistEntryId: string,
-  outcome: string
+  outcome: CallOutcome,
 ) {
   const { data, error } = await supabase
     .from("call_attempts")
@@ -107,7 +112,7 @@ export async function recordCallAttempt(
       patient_id: patientId,
       slot_id: slotId,
       waitlist_entry_id: waitlistEntryId,
-      outcome: outcome as any,
+      outcome,
       provider: "fonio",
     })
     .select()

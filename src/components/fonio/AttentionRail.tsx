@@ -1,13 +1,18 @@
 import { AlertTriangle, ArrowUpRight, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFonio } from "@/lib/fonio/store";
+import type { Alert } from "@/lib/fonio/types";
 import { severityCls } from "@/lib/fonio/ui";
 
-export function AttentionRail({ onOpenSlot }: { onOpenSlot: (slotId: string) => void }) {
+export function AttentionRail({
+  onOpenSlot,
+}: {
+  onOpenSlot: (slotId: string, actionKind: Alert["actionKind"]) => void;
+}) {
   const { alerts, dismissAlert } = useFonio();
 
   return (
-    <aside className="flex w-[340px] shrink-0 flex-col border-l border-border bg-card">
+    <aside className="flex w-full shrink-0 flex-col border-t border-border bg-card 2xl:h-full 2xl:w-[340px] 2xl:border-l 2xl:border-t-0">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Bell className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold">Attention rail</h2>
@@ -15,9 +20,9 @@ export function AttentionRail({ onOpenSlot }: { onOpenSlot: (slotId: string) => 
           {alerts.length}
         </span>
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto p-3">
+      <div className={alerts.length === 0 ? "p-3" : "flex-1 space-y-2 overflow-y-auto p-3"}>
         {alerts.length === 0 && (
-          <p className="px-2 py-8 text-center text-xs text-muted-foreground">
+          <p className="px-2 py-3 text-center text-xs text-muted-foreground">
             No urgent items. Automation is handling the queue.
           </p>
         )}
@@ -46,7 +51,7 @@ export function AttentionRail({ onOpenSlot }: { onOpenSlot: (slotId: string) => 
                 <Button
                   size="sm"
                   className="h-7 px-2 text-xs"
-                  onClick={() => onOpenSlot(a.slotId!)}
+                  onClick={() => onOpenSlot(a.slotId!, a.actionKind)}
                 >
                   {a.primaryAction}
                   <ArrowUpRight className="h-3 w-3" />

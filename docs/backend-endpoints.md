@@ -8,11 +8,16 @@ Calendar and calling plumbing can be built separately, then connected to these e
 
 - Frontend: Lovable/TanStack UI in `src/components/fonio`.
 - Booking algorithm: `src/lib/fonio/backend/algorithm.ts`.
-- Local backend state and booking semantics: `src/lib/fonio/backend/store.server.ts`.
+- Live backend state and booking semantics: `src/lib/fonio/backend/supabase-store.server.ts`.
+- Deterministic pressure-test backend state: `src/lib/fonio/backend/store.server.ts`.
 - HTTP endpoint router: `src/lib/fonio/backend/router.server.ts`.
 - Calendar/calling integration: external service or teammate-owned code calls these endpoints.
 
-The current backend is in-memory. Replace `store.server.ts` with Supabase/Postgres later.
+The live HTTP API is Supabase-backed. Local algorithm pressure tests still use the in-memory store
+so race/upgrade scenarios stay deterministic and do not mutate the shared hackathon database.
+
+Server writes require either `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` or permissive RLS write
+policies for the hackathon tables. The anon key can read, but it may not be allowed to insert/update.
 
 ## Endpoint List
 

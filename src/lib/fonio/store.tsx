@@ -1,166 +1,242 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { initialAlerts, initialSlots, initialWaitlist } from "./mock-data";
-import type { Alert, Slot, WaitlistEntry } from "./types";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { fonioApi } from "./api-client";
+import { buildAttentionAlerts } from "./attention";
+import { buildSlotViews, buildWaitlistViews, createOpenSlotDbFromLegacy } from "./db-state";
+import { initialSlots, initialWaitlist } from "./mock-data";
+import type { Alert, OpenSlotDbState, Slot, SlotView, WaitlistEntry, WaitlistView } from "./types";
 
 interface FonioContextValue {
-  slots: Slot[];
+  db: OpenSlotDbState;
+  slots: SlotView[];
   alerts: Alert[];
-  waitlist: WaitlistEntry[];
+  waitlist: WaitlistView[];
   selectedSlotId: string | null;
   selectSlot: (id: string | null) => void;
   pausedNewWaves: boolean;
-  togglePausedNewWaves: () => void;
-  setSlotPaused: (id: string, paused: boolean) => void;
-  callNextCandidate: (id: string) => void;
-  manualBook: (slotId: string, candidateName: string) => { ok: boolean; message: string };
-  escalate: (slotId: string) => void;
-  cancelAndReopen: (slotId: string) => void;
+  togglePausedNewWaves: () => Promise<{ ok: boolean; message: string }>;
+  setSlotPaused: (id: string, paused: boolean) => Promise<{ ok: boolean; message: string }>;
+  callNextCandidate: (id: string) => Promise<{ ok: boolean; message: string }>;
+  manualBook: (slotId: string, candidateName: string) => Promise<{ ok: boolean; message: string }>;
+  escalate: (slotId: string) => Promise<{ ok: boolean; message: string }>;
+  cancelAndReopen: (slotId: string) => Promise<{ ok: boolean; message: string }>;
   dismissAlert: (id: string) => void;
 }
 
 const FonioContext = createContext<FonioContextValue | null>(null);
 
 export function FonioProvider({ children }: { children: ReactNode }) {
-  const [slots, setSlots] = useState<Slot[]>(initialSlots);
-  const [alerts, setAlerts] = useState<Alert[]>(initialAlerts);
-  const [waitlist] = useState<WaitlistEntry[]>(initialWaitlist);
+  const [db, setDb] = useState<OpenSlotDbState>(() =>
+    createOpenSlotDbFromLegacy(initialSlots, initialWaitlist),
+  );
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(() => new Set());
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>("s-1030");
   const [pausedNewWaves, setPausedNewWaves] = useState(false);
 
+  const slots = useMemo(() => buildSlotViews(db), [db]);
+  const waitlist = useMemo(() => buildWaitlistViews(db), [db]);
+
+  const hydrateBackendState = useCallback(async () => {
+    const [slotsResponse, waitlistResponse] = (await Promise.all([
+      fonioApi.listSlots(),
+      fonioApi.listWaitlist(),
+    ])) as [{ slots: Slot[] }, { waitlist: WaitlistEntry[] }];
+    const nextDb = createOpenSlotDbFromLegacy(slotsResponse.slots, waitlistResponse.waitlist);
+
+    setDb(nextDb);
+    setSelectedSlotId((current) =>
+      current && slotsResponse.slots.some((slot) => slot.id === current)
+        ? current
+        : (slotsResponse.slots[0]?.id ?? null),
+    );
+
+    return {
+      slots: slotsResponse.slots,
+      waitlist: waitlistResponse.waitlist,
+    };
+  }, []);
+
+  const pauseSlotViaApi = useCallback(
+    async (id: string, paused: boolean) => {
+      const response = (await fonioApi.pauseNewWaves(id, paused)) as {
+        ok: boolean;
+        reason?: string;
+        slot: Slot;
+      };
+      await hydrateBackendState();
+      return {
+        ok: response.ok,
+        message: response.reason ?? (paused ? "New waves paused." : "New waves resumed."),
+      };
+    },
+    [hydrateBackendState],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateFromApi() {
+      try {
+        const [slotsResponse, waitlistResponse] = (await Promise.all([
+          fonioApi.listSlots(),
+          fonioApi.listWaitlist(),
+        ])) as [{ slots: Slot[] }, { waitlist: WaitlistEntry[] }];
+        if (!cancelled) {
+          setDb(createOpenSlotDbFromLegacy(slotsResponse.slots, waitlistResponse.waitlist));
+          setSelectedSlotId((current) =>
+            current && slotsResponse.slots.some((slot) => slot.id === current)
+              ? current
+              : (slotsResponse.slots[0]?.id ?? null),
+          );
+        }
+      } catch {
+        // Keep the static mock state if the local API is not available yet.
+      }
+    }
+
+    void hydrateFromApi();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const derivedAlerts = useMemo(() => buildAttentionAlerts(slots), [slots]);
+
+  useEffect(() => {
+    setDismissedAlertIds((current) => {
+      const activeAlertIds = new Set(derivedAlerts.map((alert) => alert.id));
+      let changed = false;
+      const next = new Set<string>();
+
+      for (const id of current) {
+        if (activeAlertIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [derivedAlerts]);
+
+  const alerts = useMemo(
+    () => derivedAlerts.filter((alert) => !dismissedAlertIds.has(alert.id)),
+    [derivedAlerts, dismissedAlertIds],
+  );
+
   const value = useMemo<FonioContextValue>(
     () => ({
+      db,
       slots,
       alerts,
       waitlist,
       selectedSlotId,
       selectSlot: setSelectedSlotId,
       pausedNewWaves,
-      togglePausedNewWaves: () => setPausedNewWaves((p) => !p),
-      setSlotPaused: (id, paused) =>
-        setSlots((s) =>
-          s.map((slot) =>
-            slot.id === id
-              ? {
-                  ...slot,
-                  status: paused
-                    ? "PAUSED_NEW_WAVES"
-                    : slot.status === "PAUSED_NEW_WAVES"
-                      ? "OFFERING"
-                      : slot.status,
-                  lastEvent: paused ? "New waves paused" : "Resumed new waves",
-                }
-              : slot,
-          ),
-        ),
-      callNextCandidate: (id) =>
-        setSlots((s) =>
-          s.map((slot) => {
-            if (slot.id !== id) return slot;
-            if (slot.status === "BOOKED" || slot.status === "EXPIRED") return slot;
-            const next = slot.candidates.find(
-              (c) => c.contactStatus === "not_contacted" && c.eligible,
-            );
-            if (!next) return slot;
-            return {
-              ...slot,
-              attempts: slot.attempts + 1,
-              lastEvent: `Dispatched ${next.name}`,
-              candidates: slot.candidates.map((c) =>
-                c.id === next.id ? { ...c, contactStatus: "ringing", lastContacted: "now" } : c,
-              ),
-              timeline: [
-                ...slot.timeline,
-                {
-                  id: `e-${Date.now()}`,
-                  at: "now",
-                  kind: "wave_dispatched",
-                  message: `Manual dispatch: ${next.name}`,
-                },
-              ],
-            };
-          }),
-        ),
-      manualBook: (slotId, candidateName) => {
-        const slot = slots.find((s) => s.id === slotId);
-        if (!slot) return { ok: false, message: "Slot not found." };
-        if (slot.status === "BOOKED") {
+      togglePausedNewWaves: async () => {
+        const nextPaused = !pausedNewWaves;
+        setPausedNewWaves(nextPaused);
+        const targets = slots.filter((slot) =>
+          ["OPEN", "OFFERING", "PAUSED_NEW_WAVES"].includes(slot.status),
+        );
+        const results = await Promise.allSettled(
+          targets.map((slot) => pauseSlotViaApi(slot.id, nextPaused)),
+        );
+        const rejected = results.filter((result) => result.status === "rejected");
+        if (rejected.length > 0) {
           return {
             ok: false,
-            message: `Could not book. Slot already booked by ${slot.bookedCustomer}.`,
+            message: `Updated ${targets.length - rejected.length}/${targets.length} slots.`,
           };
         }
-        setSlots((s) =>
-          s.map((sl) =>
-            sl.id === slotId
-              ? {
-                  ...sl,
-                  status: "BOOKED",
-                  bookedCustomer: candidateName,
-                  lastEvent: `Manually booked ${candidateName}`,
-                  recoveredMinBeforeStart: sl.startsInMin,
-                  timeline: [
-                    ...sl.timeline,
-                    {
-                      id: `e-${Date.now()}`,
-                      at: "now",
-                      kind: "booked",
-                      message: `Manual booking: ${candidateName}`,
-                    },
-                  ],
-                }
-              : sl,
-          ),
-        );
-        return { ok: true, message: `Booked ${candidateName}.` };
+
+        return {
+          ok: true,
+          message: nextPaused ? "Paused new waves for active slots." : "Resumed active slots.",
+        };
       },
-      escalate: (slotId) =>
-        setSlots((s) =>
-          s.map((sl) =>
-            sl.id === slotId
-              ? {
-                  ...sl,
-                  status: "ESCALATED",
-                  lastEvent: "Escalated to receptionist",
-                  needsAttention: true,
-                  timeline: [
-                    ...sl.timeline,
-                    {
-                      id: `e-${Date.now()}`,
-                      at: "now",
-                      kind: "escalated",
-                      message: "Manually escalated to receptionist",
-                    },
-                  ],
-                }
-              : sl,
-          ),
-        ),
-      cancelAndReopen: (slotId) =>
-        setSlots((s) =>
-          s.map((sl) =>
-            sl.id === slotId
-              ? {
-                  ...sl,
-                  status: "OPEN",
-                  bookedCustomer: undefined,
-                  recoveredMinBeforeStart: undefined,
-                  lastEvent: "Booking cancelled, slot reopened",
-                  timeline: [
-                    ...sl.timeline,
-                    {
-                      id: `e-${Date.now()}`,
-                      at: "now",
-                      kind: "slot_opened",
-                      message: "Booking cancelled. Customer notified. Slot reopened for outreach.",
-                    },
-                  ],
-                }
-              : sl,
-          ),
-        ),
-      dismissAlert: (id) => setAlerts((a) => a.filter((x) => x.id !== id)),
+      setSlotPaused: pauseSlotViaApi,
+      callNextCandidate: async (id) => {
+        const response = (await fonioApi.dispatchWave({ slotId: id })) as {
+          ok: boolean;
+          reason?: string;
+          slot: Slot;
+        };
+        await hydrateBackendState();
+        return {
+          ok: response.ok,
+          message: response.ok
+            ? "Next backend-selected wave dispatched."
+            : (response.reason ?? "Could not dispatch next wave."),
+        };
+      },
+      manualBook: async (slotId, candidateName) => {
+        const response = (await fonioApi.attemptBooking({
+          slotId,
+          candidateName,
+          source: "manual",
+        })) as {
+          ok: boolean;
+          message: string;
+          slot: Slot;
+        };
+        await hydrateBackendState();
+        return { ok: response.ok, message: response.message };
+      },
+      escalate: async (slotId) => {
+        const response = (await fonioApi.escalate(
+          slotId,
+          "Manually escalated to receptionist",
+        )) as {
+          ok: boolean;
+          reason?: string;
+          slot: Slot;
+        };
+        await hydrateBackendState();
+        return {
+          ok: response.ok,
+          message: response.reason ?? "Escalated to receptionist.",
+        };
+      },
+      cancelAndReopen: async (slotId) => {
+        const response = (await fonioApi.cancelAndReopen(slotId)) as {
+          ok: boolean;
+          reason?: string;
+          slot: Slot;
+        };
+        await hydrateBackendState();
+        return {
+          ok: response.ok,
+          message: response.reason ?? "Booking cancelled. Slot reopened.",
+        };
+      },
+      dismissAlert: (id) =>
+        setDismissedAlertIds((current) => {
+          const next = new Set(current);
+          next.add(id);
+          return next;
+        }),
     }),
-    [slots, alerts, waitlist, selectedSlotId, pausedNewWaves],
+    [
+      db,
+      slots,
+      alerts,
+      waitlist,
+      selectedSlotId,
+      pausedNewWaves,
+      pauseSlotViaApi,
+      hydrateBackendState,
+    ],
   );
 
   return <FonioContext.Provider value={value}>{children}</FonioContext.Provider>;

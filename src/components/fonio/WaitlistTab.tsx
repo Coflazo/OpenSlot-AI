@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFonio } from "@/lib/fonio/store";
-import type { WaitlistEntry } from "@/lib/fonio/types";
+import type { WaitlistView } from "@/lib/fonio/types";
 
 export function WaitlistTab() {
   const { waitlist } = useFonio();
@@ -20,6 +20,17 @@ export function WaitlistTab() {
   const [consent, setConsent] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(waitlist[0]?.id ?? null);
+
+  useEffect(() => {
+    if (!waitlist.length) {
+      setSelectedId(null);
+      return;
+    }
+
+    setSelectedId((current) =>
+      current && waitlist.some((entry) => entry.id === current) ? current : waitlist[0].id,
+    );
+  }, [waitlist]);
 
   const services = useMemo(
     () => Array.from(new Set(waitlist.flatMap((w) => w.serviceTypes))),
@@ -168,7 +179,7 @@ function FilterSelect({
   );
 }
 
-function CandidateDetail({ entry }: { entry: WaitlistEntry | null }) {
+function CandidateDetail({ entry }: { entry: WaitlistView | null }) {
   if (!entry)
     return (
       <aside className="flex w-[360px] items-center justify-center bg-card text-sm text-muted-foreground">
@@ -185,7 +196,7 @@ function CandidateDetail({ entry }: { entry: WaitlistEntry | null }) {
       </div>
       <div className="space-y-4 p-4 text-sm">
         <Section label="Phone number">
-          <div className="font-mono text-base font-semibold">{entry.phone}</div>
+          <div className="font-mono text-base font-semibold">{entry.patient.phone_e164}</div>
         </Section>
         <Section label="Contact preferences">
           <p>Preferred times: {entry.preferredTimes}</p>

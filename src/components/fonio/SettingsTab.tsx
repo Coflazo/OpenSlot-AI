@@ -1,14 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { useFonio } from "@/lib/fonio/store";
 
 export function SettingsTab() {
-  const [aggression, setAggression] = useState<"Patient" | "Balanced" | "Aggressive">("Balanced");
-  const [auto, setAuto] = useState(true);
+  const { db, pausedNewWaves, togglePausedNewWaves } = useFonio();
+  const clinic = db.clinics[0];
+  const [aggression, setAggression] = useState(clinic.fill_mode_default);
   const [approveFirst, setApproveFirst] = useState(false);
   const [consentRequired, setConsentRequired] = useState(true);
+
+  useEffect(() => {
+    setAggression(clinic.fill_mode_default);
+  }, [clinic.fill_mode_default]);
 
   return (
     <div className="h-full overflow-y-auto bg-background p-5">
@@ -46,13 +51,16 @@ export function SettingsTab() {
         >
           <Row label="Quiet hours" hint="No calls during these hours.">
             <div className="flex items-center gap-2">
-              <Input className="h-9 w-24" defaultValue="20:00" />
+              <Input className="h-9 w-24" defaultValue={clinic.quiet_hours_start ?? ""} />
               <span className="text-xs text-muted-foreground">to</span>
-              <Input className="h-9 w-24" defaultValue="08:00" />
+              <Input className="h-9 w-24" defaultValue={clinic.quiet_hours_end ?? ""} />
             </div>
           </Row>
           <Row label="Max contacts per person per week" hint="Across all channels.">
-            <Input className="h-9 w-20" defaultValue="2" />
+            <Input
+              className="h-9 w-20"
+              defaultValue={String(clinic.max_contacts_per_patient_per_week)}
+            />
           </Row>
           <Row label="Consent required" hint="Skip candidates without explicit outreach consent.">
             <Switch checked={consentRequired} onCheckedChange={setConsentRequired} />
@@ -93,7 +101,12 @@ export function SettingsTab() {
 
         <SettingsCard title="Automation" description="System-wide outreach controls.">
           <Row label="Enable automated outreach" hint="Master switch for the engine.">
-            <Switch checked={auto} onCheckedChange={setAuto} />
+            <Switch
+              checked={!pausedNewWaves}
+              onCheckedChange={() => {
+                void togglePausedNewWaves();
+              }}
+            />
           </Row>
           <Row
             label="Require receptionist approval for first wave"

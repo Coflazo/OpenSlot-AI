@@ -29,7 +29,7 @@ export async function makeOutboundCall(
     timeLabel: string;
     provider: string;
     service: string;
-  }
+  },
 ): Promise<FonioCallResponse> {
   const apiKey = process.env.FONIO_API_KEY;
   const fromNumber = process.env.FONIO_FROM_NUMBER;
@@ -133,12 +133,8 @@ export function parseCallTranscription(transcription: string): {
     "ocupado",
   ];
 
-  const hasAcceptance = acceptanceKeywords.some((keyword) =>
-    lowerTranscription.includes(keyword)
-  );
-  const hasRejection = rejectionKeywords.some((keyword) =>
-    lowerTranscription.includes(keyword)
-  );
+  const hasAcceptance = acceptanceKeywords.some((keyword) => lowerTranscription.includes(keyword));
+  const hasRejection = rejectionKeywords.some((keyword) => lowerTranscription.includes(keyword));
 
   if (hasAcceptance && !hasRejection) {
     return {

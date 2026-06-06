@@ -83,10 +83,16 @@ Orchestrator → Dispatch Wave → Get Candidates
 Add these to `.env.local`:
 
 ```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=ey...
+SUPABASE_SERVICE_ROLE_KEY=ey... # server-only; required when RLS blocks writes
+
 FONIO_API_KEY=fonio_xxxxxxxxxxxxxxxxxxxxxxxx
 FONIO_FROM_NUMBER=+34667889775
 FONIO_AGENT_ID=5e3bbca9-8456-4030-95da-6b104262aab6
 ```
+
+Do not expose `SUPABASE_SERVICE_ROLE_KEY` to browser code. It is only read by `.server.ts` files.
 
 ## Current Limitations (Phase 1)
 

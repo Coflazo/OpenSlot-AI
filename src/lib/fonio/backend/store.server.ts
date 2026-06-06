@@ -1,14 +1,14 @@
 import { initialSlots, initialWaitlist } from "../mock-data";
-import type { CallOutcome, Slot, SlotStatus, WaitlistEntry } from "../types";
+import type { CallOutcome, Slot, WaitlistEntry } from "../types";
 import {
   calculateWaveSize,
   eligibleForNextWave,
   estimateSlotCallSuccess,
   rankCandidates,
 } from "./algorithm";
-import { fetchWaitlistEntries, fetchSlots, recordCallAttempt, createBooking } from "../../supabase.server";
+import { fetchSlots, fetchWaitlistEntries } from "../../supabase.server";
 
-type BookingSource = "call_webhook" | "manual" | "seed";
+type BookingSource = "call_webhook" | "manual" | "seed" | "upgrade";
 
 export interface AttemptBookingInput {
   slotId: string;
@@ -35,24 +35,36 @@ export interface SlotOpenedInput {
   fillMode?: Slot["fillMode"];
 }
 
-// TODO: Initialize from Supabase on server startup
-// For now, using mock data as fallback
-let slots: Slot[] = clone(initialSlots);
-let waitlist: WaitlistEntry[] = clone(initialWaitlist);
+export interface UpgradeBookingInput {
+  patientName: string;
+  currentSlotId: string;
+  targetSlotId: string;
+}
+
+const slots: Slot[] = clone(initialSlots);
+const waitlist: WaitlistEntry[] = clone(initialWaitlist);
 const processedEvents = new Set<string>();
 
 /**
- * Initialize data from Supabase
- * Call this once on server startup
+ * Proves the Supabase connection without replacing the local demo model yet.
+ * The full row-to-view mapper should live behind this hook when we switch off mocks.
  */
 export async function initializeFromSupabase() {
   try {
     console.log("[Store] Initializing from Supabase...");
-    // TODO: Implement full data transformation from Supabase
-    // For now, keeping mock data as fallback
+    const [remoteSlots, remoteWaitlist] = await Promise.all([fetchSlots(), fetchWaitlistEntries()]);
+    console.log(
+      `[Store] Supabase reachable: ${remoteSlots.length} slots, ${remoteWaitlist.length} waitlist entries.`,
+    );
   } catch (error) {
     console.error("[Store] Failed to initialize from Supabase:", error);
   }
+}
+
+export function resetBackendState() {
+  slots.splice(0, slots.length, ...clone(initialSlots));
+  waitlist.splice(0, waitlist.length, ...clone(initialWaitlist));
+  processedEvents.clear();
 }
 
 export function getBackendState() {
@@ -77,6 +89,7 @@ export function openSlot(input: SlotOpenedInput) {
     provider: input.provider,
     service: input.service,
     status: "OPEN",
+    newWavesPaused: false,
     fillMode: input.fillMode ?? "Balanced",
     waveSize: 1,
     attempts: 0,
@@ -119,18 +132,18 @@ export function getRankedSlot(slotId: string) {
 
 export function dispatchNextWave(slotId: string, requestedWaveSize?: number) {
   const slot = requireSlot(slotId);
-  if (!["OPEN", "PAUSED_NEW_WAVES"].includes(slot.status)) {
+  if (slot.newWavesPaused || slot.status === "PAUSED_NEW_WAVES") {
     return {
       ok: false,
-      reason: `Cannot dispatch a wave while slot is ${slot.status}.`,
+      reason: "New waves are paused. Calls already in progress may still complete.",
       slot,
     };
   }
 
-  if (slot.status === "PAUSED_NEW_WAVES") {
+  if (!["OPEN", "PAUSED_NEW_WAVES"].includes(slot.status)) {
     return {
       ok: false,
-      reason: "New waves are paused. Calls already in progress may still complete.",
+      reason: `Cannot dispatch a wave while slot is ${slot.status}.`,
       slot,
     };
   }
@@ -187,7 +200,7 @@ export function dispatchNextWave(slotId: string, requestedWaveSize?: number) {
     message: `Wave ${waveNumber} dispatched (size ${waveCandidates.length})`,
   });
 
-  return { ok: true, slot, wave: slot.activeWave, recommendation };
+  return { ok: true, slot, wave: slot.activeWave, candidates: waveCandidates, recommendation };
 }
 
 export function recordCallOutcome(input: CallOutcomeInput) {
@@ -238,7 +251,7 @@ export function recordCallOutcome(input: CallOutcomeInput) {
 
   const waveStillRinging = slot.activeWave?.candidates.some((c) => c.state === "ringing");
   if (slot.status === "OFFERING" && !waveStillRinging) {
-    slot.status = "OPEN";
+    slot.status = slot.newWavesPaused ? "PAUSED_NEW_WAVES" : "OPEN";
     slot.lastEvent = "Wave closed without booking";
   }
 
@@ -274,7 +287,6 @@ export function attemptBooking(input: AttemptBookingInput) {
         ok: false,
         code: "STALE_WAVE",
         message: "Acceptance came from a stale or inactive wave.",
-        runnerUp: markRunnerUp(slot, candidateName),
         slot,
       };
     }
@@ -293,6 +305,7 @@ export function attemptBooking(input: AttemptBookingInput) {
   slot.bookedCustomer = candidateName;
   slot.recoveredMinBeforeStart = Math.max(slot.startsInMin, 0);
   slot.needsAttention = false;
+  slot.activeWave = undefined;
   slot.lastEvent = `Booked ${candidateName}`;
   slot.candidates = slot.candidates.map((c) =>
     c.name === candidateName
@@ -322,7 +335,10 @@ export function setSlotPaused(slotId: string, paused: boolean) {
     return { ok: false, reason: `Cannot pause a ${slot.status} slot.`, slot };
   }
 
-  slot.status = paused ? "PAUSED_NEW_WAVES" : "OPEN";
+  slot.newWavesPaused = paused;
+  if (slot.status !== "OFFERING") {
+    slot.status = paused ? "PAUSED_NEW_WAVES" : "OPEN";
+  }
   slot.lastEvent = paused ? "New waves paused" : "New waves resumed";
   slot.reasoning = paused
     ? "New waves are paused. Calls already ringing or in progress may still complete."
@@ -366,6 +382,95 @@ export function cancelAndReopen(slotId: string) {
     message: `Booking cancelled${previousCustomer ? ` for ${previousCustomer}` : ""}. Slot reopened.`,
   });
   return { ok: true, slot };
+}
+
+export function acceptUpgrade(input: UpgradeBookingInput) {
+  const currentSlot = requireSlot(input.currentSlotId);
+  const targetSlot = requireSlot(input.targetSlotId);
+
+  if (
+    targetSlot.status === "BOOKED" &&
+    targetSlot.bookedCustomer === input.patientName &&
+    currentSlot.bookedCustomer !== input.patientName
+  ) {
+    return {
+      ok: true,
+      duplicate: true,
+      message: `${input.patientName} is already upgraded into ${targetSlot.timeLabel}.`,
+      upgradedSlot: targetSlot,
+      releasedSlot: currentSlot,
+    };
+  }
+
+  if (currentSlot.status !== "BOOKED" || currentSlot.bookedCustomer !== input.patientName) {
+    return {
+      ok: false,
+      code: "CURRENT_BOOKING_NOT_FOUND",
+      message: `${input.patientName} does not hold the current slot.`,
+      currentSlot,
+      targetSlot,
+    };
+  }
+
+  if (targetSlot.status === "BOOKED") {
+    const runnerUp =
+      targetSlot.bookedCustomer !== input.patientName
+        ? markRunnerUp(targetSlot, input.patientName)
+        : null;
+    return {
+      ok: false,
+      code: "TARGET_ALREADY_BOOKED",
+      message: `Could not upgrade. Target slot already booked by ${targetSlot.bookedCustomer}.`,
+      runnerUp,
+      currentSlot,
+      targetSlot,
+    };
+  }
+
+  const booking = attemptBooking({
+    slotId: input.targetSlotId,
+    candidateName: input.patientName,
+    source: "upgrade",
+  });
+
+  if (!booking.ok) {
+    return {
+      ok: false,
+      code: booking.code,
+      message: booking.message,
+      currentSlot,
+      targetSlot,
+    };
+  }
+
+  currentSlot.status = "OPEN";
+  currentSlot.bookedCustomer = undefined;
+  currentSlot.recoveredMinBeforeStart = undefined;
+  currentSlot.needsAttention = false;
+  currentSlot.newWavesPaused = false;
+  currentSlot.activeWave = undefined;
+  currentSlot.lastEvent = `${input.patientName} moved to earlier slot; old slot released`;
+  currentSlot.timeline.push({
+    id: eventId(),
+    at: "now",
+    kind: "slot_opened",
+    message: `${input.patientName} accepted an earlier slot. This slot is now available for waitlist filling.`,
+  });
+
+  targetSlot.timeline.push({
+    id: eventId(),
+    at: "now",
+    kind: "booked",
+    message: `${input.patientName} upgraded from ${currentSlot.timeLabel}`,
+  });
+
+  return {
+    ok: true,
+    code: "UPGRADED",
+    message: `${input.patientName} moved to ${targetSlot.timeLabel}; ${currentSlot.timeLabel} released.`,
+    upgradedSlot: targetSlot,
+    releasedSlot: currentSlot,
+  };
 }
 
 function markRunnerUp(slot: Slot, candidateName: string) {

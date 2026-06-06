@@ -17,7 +17,7 @@ export function TodayBoard() {
   const sorted = [...slots].sort((a, b) => urgencyRank(a) - urgencyRank(b));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-w-0 flex-col bg-card 2xl:h-full">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold">Today board</h2>
@@ -25,15 +25,15 @@ export function TodayBoard() {
         </div>
         <div className="text-xs text-muted-foreground">{slots.length} slots</div>
       </div>
-      <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        <div className="col-span-1">Time</div>
-        <div className="col-span-2">Provider</div>
-        <div className="col-span-2">Service</div>
-        <div className="col-span-2">Status</div>
-        <div className="col-span-2">Outreach</div>
-        <div className="col-span-3">Last event</div>
+      <div className="hidden grid-cols-[96px_minmax(136px,1fr)_minmax(116px,0.9fr)_128px_minmax(158px,1.05fr)_minmax(160px,1.2fr)] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid">
+        <div>Time</div>
+        <div>Provider</div>
+        <div>Service</div>
+        <div>Status</div>
+        <div>Outreach</div>
+        <div>Last event</div>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="2xl:flex-1 2xl:overflow-y-auto">
         {sorted.map((s) => {
           const sel = s.id === selectedSlotId;
           const st = statusStyles[s.status];
@@ -41,54 +41,114 @@ export function TodayBoard() {
             <button
               key={s.id}
               onClick={() => selectSlot(s.id)}
-              className={`grid w-full grid-cols-12 items-center gap-2 border-b border-border px-4 py-3 text-left text-sm transition-colors hover:bg-accent/60 ${
+              className={`w-full border-b border-border px-4 py-3 text-left text-sm transition-colors hover:bg-accent/60 lg:grid lg:grid-cols-[96px_minmax(136px,1fr)_minmax(116px,0.9fr)_128px_minmax(158px,1.05fr)_minmax(160px,1.2fr)] lg:items-center lg:gap-3 ${
                 sel ? "bg-accent" : "bg-card"
               }`}
             >
-              <div className="col-span-1 flex items-center gap-1.5">
-                {s.needsAttention && (
-                  <AlertCircle className="h-3.5 w-3.5 text-danger" aria-label="Needs attention" />
-                )}
-                <span className="font-mono font-medium">{s.timeLabel}</span>
+              <div className="flex min-w-0 flex-col gap-3 lg:hidden">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {s.needsAttention && (
+                      <AlertCircle
+                        className="h-3.5 w-3.5 shrink-0 text-danger"
+                        aria-label="Needs attention"
+                      />
+                    )}
+                    <span className="shrink-0 font-mono font-medium tabular-nums">
+                      {s.timeLabel}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{s.provider.display_name}</div>
+                      <div className="truncate text-xs text-muted-foreground">{s.service.name}</div>
+                    </div>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs ${st.cls}`}
+                  >
+                    {st.label}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="min-w-0">
+                    <div className="text-muted-foreground">Outreach</div>
+                    <OutreachSummary slot={s} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-muted-foreground">Last event</div>
+                    <LastEvent slot={s} />
+                  </div>
+                </div>
               </div>
-              <div className="col-span-2 truncate">{s.provider}</div>
-              <div className="col-span-2 truncate text-muted-foreground">{s.service}</div>
-              <div className="col-span-2">
+
+              <div className="hidden min-w-0 items-center gap-1.5 lg:flex">
+                {s.needsAttention && (
+                  <AlertCircle
+                    className="h-3.5 w-3.5 shrink-0 text-danger"
+                    aria-label="Needs attention"
+                  />
+                )}
+                <span className="shrink-0 whitespace-nowrap font-mono font-medium tabular-nums">
+                  {s.timeLabel}
+                </span>
+              </div>
+              <div className="hidden min-w-0 truncate lg:block">{s.provider.display_name}</div>
+              <div className="hidden min-w-0 truncate text-muted-foreground lg:block">
+                {s.service.name}
+              </div>
+              <div className="hidden min-w-0 lg:block">
                 <span
                   className={`inline-flex items-center rounded border px-2 py-0.5 text-xs ${st.cls}`}
                 >
                   {st.label}
                 </span>
               </div>
-              <div className="col-span-2 flex flex-col text-xs">
-                {s.status === "BOOKED" ? (
-                  <span className="flex items-center gap-1 text-success-soft-foreground">
-                    <User className="h-3 w-3" />
-                    {s.bookedCustomer}
-                  </span>
-                ) : s.status === "ESCALATED" ? (
-                  <span className="text-danger-soft-foreground">No eligible candidates</span>
-                ) : (
-                  <>
-                    <span>
-                      wave size {s.waveSize} · {s.attempts}/{s.attemptsTotal} attempts
-                    </span>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {formatRunway(s.startsInMin)}
-                    </span>
-                  </>
-                )}
+              <div className="hidden min-w-0 text-xs lg:block">
+                <OutreachSummary slot={s} />
               </div>
-              <div className="col-span-3 truncate text-xs text-muted-foreground">
-                {s.status === "BOOKED" && s.recoveredMinBeforeStart
-                  ? `Recovered ${s.recoveredMinBeforeStart} min before start`
-                  : s.lastEvent}
+              <div className="hidden min-w-0 text-xs text-muted-foreground lg:block">
+                <LastEvent slot={s} />
               </div>
             </button>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function OutreachSummary({ slot }: { slot: ReturnType<typeof useFonio>["slots"][number] }) {
+  if (slot.status === "BOOKED") {
+    return (
+      <span className="flex min-w-0 items-center gap-1 text-success-soft-foreground">
+        <User className="h-3 w-3 shrink-0" />
+        <span className="truncate">{slot.bookedCustomer?.full_name}</span>
+      </span>
+    );
+  }
+
+  if (slot.status === "ESCALATED") {
+    return <span className="text-danger-soft-foreground">No eligible candidates</span>;
+  }
+
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate">
+        wave size {slot.waveSize} · {slot.attempts}/{slot.attemptsTotal} attempts
+      </span>
+      <span className="flex items-center gap-1 text-muted-foreground">
+        <Clock className="h-3 w-3 shrink-0" />
+        <span className="truncate">{formatRunway(slot.startsInMin)}</span>
+      </span>
+    </span>
+  );
+}
+
+function LastEvent({ slot }: { slot: ReturnType<typeof useFonio>["slots"][number] }) {
+  return (
+    <span className="block truncate text-muted-foreground">
+      {slot.status === "BOOKED" && slot.recoveredMinBeforeStart
+        ? `Recovered ${slot.recoveredMinBeforeStart} min before start`
+        : slot.lastEvent}
+    </span>
   );
 }

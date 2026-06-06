@@ -25,7 +25,7 @@ import {
 import { useFonio } from "@/lib/fonio/store";
 import { outcomeStyles, statusStyles, formatRunway } from "@/lib/fonio/ui";
 import { toast } from "sonner";
-import type { Slot } from "@/lib/fonio/types";
+import type { SlotView } from "@/lib/fonio/types";
 
 export function SlotDetailPanel() {
   const {
@@ -41,31 +41,43 @@ export function SlotDetailPanel() {
 
   if (!slot) {
     return (
-      <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
+      <div
+        id="slot-detail-panel"
+        tabIndex={-1}
+        className="flex min-h-[calc(100vh-6rem)] scroll-mt-3 items-center justify-center p-8 text-sm text-muted-foreground 2xl:h-full 2xl:min-h-0"
+      >
         Select a slot to see operational detail.
       </div>
     );
   }
 
   const st = statusStyles[slot.status];
-  const paused = slot.status === "PAUSED_NEW_WAVES";
+  const paused = slot.newWavesPaused === true || slot.status === "PAUSED_NEW_WAVES";
 
-  const onManualBook = (name: string) => {
-    const r = manualBook(slot.id, name);
-    if (r.ok) toast.success(r.message);
-    else toast.error(r.message);
+  const onManualBook = async (name: string) => {
+    try {
+      const r = await manualBook(slot.id, name);
+      if (r.ok) toast.success(r.message);
+      else toast.error(r.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Manual booking failed.");
+    }
   };
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-card">
+    <div
+      id="slot-detail-panel"
+      tabIndex={-1}
+      className="flex min-h-[calc(100vh-6rem)] scroll-mt-3 flex-col bg-card 2xl:h-full 2xl:min-h-0 2xl:overflow-y-auto"
+    >
       <div className="border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-lg font-semibold">{slot.timeLabel}</span>
               <span className="text-sm text-muted-foreground">·</span>
-              <span className="text-sm font-medium">{slot.provider}</span>
-              <span className="text-sm text-muted-foreground">· {slot.service}</span>
+              <span className="text-sm font-medium">{slot.provider.display_name}</span>
+              <span className="text-sm text-muted-foreground">· {slot.service.name}</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span
@@ -91,19 +103,26 @@ export function SlotDetailPanel() {
         <ActionsBar
           slot={slot}
           paused={paused}
-          onPause={() => setSlotPaused(slot.id, !paused)}
-          onCallNext={() => {
-            callNextCandidate(slot.id);
-            toast.success("Next candidate dispatched if eligible.");
+          onPause={async () => {
+            const response = await setSlotPaused(slot.id, !paused);
+            if (response.ok) toast.success(response.message);
+            else toast.error(response.message);
+          }}
+          onCallNext={async () => {
+            const response = await callNextCandidate(slot.id);
+            if (response.ok) toast.success(response.message);
+            else toast.error(response.message);
           }}
           onManualBook={onManualBook}
-          onEscalate={() => {
-            escalate(slot.id);
-            toast.message("Escalated to receptionist.");
+          onEscalate={async () => {
+            const response = await escalate(slot.id);
+            if (response.ok) toast.message(response.message);
+            else toast.error(response.message);
           }}
-          onCancelReopen={() => {
-            cancelAndReopen(slot.id);
-            toast.message("Booking cancelled. Slot reopened.");
+          onCancelReopen={async () => {
+            const response = await cancelAndReopen(slot.id);
+            if (response.ok) toast.message(response.message);
+            else toast.error(response.message);
           }}
         />
         <Timeline slot={slot} />
@@ -113,7 +132,7 @@ export function SlotDetailPanel() {
   );
 }
 
-function ReasoningCard({ slot }: { slot: Slot }) {
+function ReasoningCard({ slot }: { slot: SlotView }) {
   return (
     <section className="rounded-md border border-border bg-background p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -135,7 +154,7 @@ function ReasoningCard({ slot }: { slot: Slot }) {
   );
 }
 
-function ActiveWavePanel({ slot }: { slot: Slot }) {
+function ActiveWavePanel({ slot }: { slot: SlotView }) {
   const w = slot.activeWave!;
   return (
     <section className="rounded-md border border-warning/30 bg-warning-soft/40 p-4">
@@ -167,7 +186,7 @@ function ActiveWavePanel({ slot }: { slot: Slot }) {
   );
 }
 
-function RunnerUpPanel({ slot }: { slot: Slot }) {
+function RunnerUpPanel({ slot }: { slot: SlotView }) {
   const r = slot.runnerUp!;
   return (
     <section className="rounded-md border border-info/30 bg-info-soft/40 p-4">
@@ -179,14 +198,14 @@ function RunnerUpPanel({ slot }: { slot: Slot }) {
       <div className="mt-3 space-y-1.5 text-xs">
         <div>
           <span className="text-muted-foreground">Winner:</span>{" "}
-          <span className="font-medium">{r.winner}</span>
+          <span className="font-medium">{r.winner?.full_name ?? "Unknown winner"}</span>
         </div>
         {r.runnerUps.map((u) => (
           <div
-            key={u.name}
+            key={u.patient.id}
             className="flex items-center justify-between rounded border border-border bg-card px-2 py-1.5"
           >
-            <span className="font-medium">{u.name}</span>
+            <span className="font-medium">{u.patient.full_name}</span>
             <span className="text-muted-foreground">{u.messageStatus}</span>
             <span className="rounded bg-info-soft px-1.5 py-0.5 text-info-soft-foreground">
               {u.priorityActive ? "Priority active" : "Priority expired"}
@@ -210,13 +229,13 @@ function ActionsBar({
   onEscalate,
   onCancelReopen,
 }: {
-  slot: Slot;
+  slot: SlotView;
   paused: boolean;
-  onPause: () => void;
-  onCallNext: () => void;
-  onManualBook: (name: string) => void;
-  onEscalate: () => void;
-  onCancelReopen: () => void;
+  onPause: () => Promise<void>;
+  onCallNext: () => Promise<void>;
+  onManualBook: (name: string) => Promise<void>;
+  onEscalate: () => Promise<void>;
+  onCancelReopen: () => Promise<void>;
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -269,7 +288,7 @@ function ActionsBar({
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  if (manualName.trim()) onManualBook(manualName.trim());
+                  if (manualName.trim()) void onManualBook(manualName.trim());
                   setManualName("");
                 }}
               >
@@ -300,7 +319,9 @@ function ActionsBar({
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Keep booking</AlertDialogCancel>
-                <AlertDialogAction onClick={onCancelReopen}>Cancel and reopen</AlertDialogAction>
+                <AlertDialogAction onClick={() => void onCancelReopen()}>
+                  Cancel and reopen
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -334,8 +355,8 @@ function CandidatesTable({
   slot,
   onManualBook,
 }: {
-  slot: Slot;
-  onManualBook: (name: string) => void;
+  slot: SlotView;
+  onManualBook: (name: string) => Promise<void>;
 }) {
   return (
     <section className="rounded-md border border-border bg-background">
@@ -370,7 +391,7 @@ function CandidatesTable({
                   <td className="px-3 py-2 font-mono text-xs">{c.rank}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col">
-                      <span className="font-medium">{c.name}</span>
+                      <span className="font-medium">{c.patient.full_name}</span>
                       {c.runnerUpBoost && (
                         <span className="text-xs text-info-soft-foreground">
                           Runner-up priority active
@@ -394,7 +415,7 @@ function CandidatesTable({
                       variant="ghost"
                       className="h-7 px-2 text-xs"
                       disabled={!c.eligible || slot.status === "BOOKED"}
-                      onClick={() => onManualBook(c.name)}
+                      onClick={() => void onManualBook(c.patient.full_name)}
                     >
                       Book
                     </Button>
