@@ -1,4 +1,5 @@
-import { Activity, PauseCircle, PlayCircle, Radio, Menu, X } from "lucide-react";
+import { useState } from "react";
+import { Activity, PauseCircle, PlayCircle, Radio, Menu, X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,8 @@ export function TopBar({
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }) {
-  const { pausedNewWaves, togglePausedNewWaves } = useFonio();
+  const { pausedNewWaves, togglePausedNewWaves, resetDemoState } = useFonio();
+  const [isResetting, setIsResetting] = useState(false);
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -43,6 +45,35 @@ export function TopBar({
         <span className="text-xs text-muted-foreground">{today}</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isResetting}
+          onClick={async () => {
+            if (
+              !window.confirm(
+                "Reset demo state? This clears bookings and call attempts, reactivates the waitlist, and opens all offerable slots.",
+              )
+            ) {
+              return;
+            }
+
+            setIsResetting(true);
+            try {
+              const response = await resetDemoState();
+              if (response.ok) toast.success(response.message);
+              else toast.error(response.message);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Could not reset demo state.");
+            } finally {
+              setIsResetting(false);
+            }
+          }}
+          title="Clear demo call and booking state, then reopen slots for offering"
+        >
+          <RefreshCw className={`h-4 w-4 ${isResetting ? "animate-spin" : ""}`} />
+          <span className="hidden xl:inline">Reset demo</span>
+        </Button>
         <div
           className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs ${
             pausedNewWaves

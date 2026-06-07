@@ -138,19 +138,15 @@ export function eligibleForNextWave(candidate: Candidate) {
     return false;
   }
 
-  // Allow retries: not_contacted OR previously tried (no_answer, declined)
-  // Exclude only: accepted, booked, or explicitly skipped with skipReason
-  const canRetry = ![
-    "accepted",
-    "booked",
-    "runner_up",
+  const canCallForThisSlot = [
+    "not_contacted",
   ].includes(candidate.contactStatus);
 
   const hasSkipReason = !!candidate.skipReason;
 
-  if (!canRetry) {
+  if (!canCallForThisSlot) {
     console.log(
-      `[ELIGIBILITY] ✗ ${candidate.name}: already ${candidate.contactStatus}`,
+      `[ELIGIBILITY] ✗ ${candidate.name}: already ${candidate.contactStatus} for this slot`,
     );
     return false;
   }

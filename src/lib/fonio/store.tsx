@@ -28,6 +28,7 @@ interface FonioContextValue {
   manualBook: (slotId: string, candidateName: string) => Promise<{ ok: boolean; message: string }>;
   escalate: (slotId: string) => Promise<{ ok: boolean; message: string }>;
   cancelAndReopen: (slotId: string) => Promise<{ ok: boolean; message: string }>;
+  resetDemoState: () => Promise<{ ok: boolean; message: string }>;
   dismissAlert: (id: string) => void;
 }
 
@@ -218,6 +219,19 @@ export function FonioProvider({ children }: { children: ReactNode }) {
         return {
           ok: response.ok,
           message: response.reason ?? "Booking cancelled. Slot reopened.",
+        };
+      },
+      resetDemoState: async () => {
+        const response = (await fonioApi.resetDemoState()) as {
+          ok: boolean;
+          message: string;
+        };
+        await hydrateBackendState();
+        setPausedNewWaves(false);
+        setDismissedAlertIds(new Set());
+        return {
+          ok: response.ok,
+          message: response.message,
         };
       },
       dismissAlert: (id) =>

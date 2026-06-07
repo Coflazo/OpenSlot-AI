@@ -3,6 +3,9 @@
  * Handles outbound calls to candidates via Fonio.ai
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 interface FonioCallRequest {
   apiKey: string;
   fromNumber: string;
@@ -20,6 +23,7 @@ interface FonioCallResponse {
 }
 
 const FONIO_ENDPOINT = "https://app.fonio.ai/api/public/v1/outbound_call";
+const envFile = loadEnvFile();
 
 export async function makeOutboundCall(
   toNumber: string,
@@ -31,9 +35,10 @@ export async function makeOutboundCall(
     service: string;
   },
 ): Promise<FonioCallResponse> {
-  const apiKey = process.env.FONIO_API_KEY;
-  const fromNumber = process.env.FONIO_FROM_NUMBER;
-  const agentId = process.env.FONIO_AGENT_ID;
+  const apiKey = getEnv("FONIO_API_KEY");
+  const fromNumber = getEnv("FONIO_FROM_NUMBER");
+  const agentId = getEnv("FONIO_AGENT_ID");
+  const clinicName = getEnv("FONIO_CLINIC_NAME") ?? "OpenSlot Radiology";
 
   if (!apiKey || !fromNumber || !agentId) {
     const missingVars = [
@@ -47,24 +52,40 @@ export async function makeOutboundCall(
     throw new Error(`Fonio credentials not configured: ${missingVars}`);
   }
 
+  const context: Record<string, string | number> = {
+    name: candidateName,
+    person_name: candidateName,
+    patient_name: candidateName,
+    customer_name: candidateName,
+    clinic_name: clinicName,
+    business_name: clinicName,
+    provider_name: slotDetails.provider,
+    slot_id: slotDetails.slotId,
+    slot_time: slotDetails.timeLabel,
+    provider: slotDetails.provider,
+    service: slotDetails.service,
+    offer_type: "waitlist",
+  };
+
   const payload: FonioCallRequest = {
     apiKey,
     fromNumber,
     toNumber,
     agentId,
-    context: {
-      person_name: candidateName,
-      slot_id: slotDetails.slotId,
-      slot_time: slotDetails.timeLabel,
-      provider: slotDetails.provider,
-      service: slotDetails.service,
-    },
+    context,
   };
 
   console.log(
     `[FONIO] 📞 Initiating outbound call to ${toNumber} for ${candidateName} (slot: ${slotDetails.timeLabel}, service: ${slotDetails.service})`,
   );
   console.log(`[FONIO] 📋 Agent ID: ${agentId}, From: ${fromNumber}`);
+  console.log(`[FONIO] 📋 Context:`, {
+    name: context.name,
+    person_name: context.person_name,
+    clinic_name: context.clinic_name,
+    provider: context.provider,
+    service: context.service,
+  });
 
   try {
     const startTime = Date.now();
@@ -109,6 +130,31 @@ export async function makeOutboundCall(
       status: "error",
       message: `Network error: ${errorMsg}`,
     };
+  }
+}
+
+function getEnv(key: string) {
+  return process.env[key] ?? envFile[key];
+}
+
+function loadEnvFile() {
+  try {
+    const envPath = resolve(process.cwd(), ".env.local");
+    const envContent = readFileSync(envPath, "utf-8");
+    const env: Record<string, string> = {};
+
+    for (const line of envContent.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+
+      const [key, ...valueParts] = trimmed.split("=");
+      const value = valueParts.join("=").trim();
+      env[key.trim()] = value.replace(/^['"]|['"]$/g, "");
+    }
+
+    return env;
+  } catch {
+    return {};
   }
 }
 

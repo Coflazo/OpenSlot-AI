@@ -12,6 +12,12 @@ import {
 } from "./store.server";
 import type { CallOutcome, Candidate, Slot } from "../types";
 
+const LIVE_DEMO_WAVE_SIZE = 1;
+const LIVE_DEMO_POLL_MS = 5_000;
+const LIVE_DEMO_MAX_ADDITIONAL_CALLS = 8;
+const LIVE_DEMO_MAX_RUNTIME_MS = 10 * 60 * 1_000;
+const activeOfferingLoops = new Set<string>();
+
 interface CallOrchestrationRequest {
   slotId: string;
   waveSize?: number;
@@ -30,7 +36,7 @@ interface CallResult {
   candidateName: string;
   phoneNumber: string;
   callStatus: "success" | "error";
-  outcome?: "accepted" | "declined" | "no_answer" | "error";
+  outcome?: "ringing" | "accepted" | "declined" | "no_answer" | "error";
   message: string;
 }
 
@@ -40,7 +46,7 @@ interface CallResult {
 export async function orchestrateCallWave(
   request: CallOrchestrationRequest,
 ): Promise<CallOrchestrationResult> {
-  const { slotId, waveSize } = request;
+  const { slotId } = request;
   const waveStartTime = Date.now();
 
   console.log(
@@ -65,112 +71,37 @@ export async function orchestrateCallWave(
       `[ORCHESTRATOR] ✓ Slot found: ${slot.provider} @ ${slot.timeLabel} (${slot.startsInMin}min from now)`,
     );
 
-    // Step 2: Dispatch the wave to get candidates
-    console.log(`[ORCHESTRATOR] 📋 Dispatching wave to select candidates...`);
-    const dispatchResult = await dispatchNextWave(slotId, waveSize);
-    if (!dispatchResult.ok) {
-      console.error(`[ORCHESTRATOR] ❌ Wave dispatch failed: ${dispatchResult.reason}`);
+    const oneCall = await dispatchOneLiveCall(slotId);
+    if (!oneCall.ok) {
+      console.error(`[ORCHESTRATOR] ❌ Call dispatch failed: ${oneCall.message}`);
       return {
         success: false,
         slotId,
         candidatesCalled: [],
         callResults: [],
-        message: `Wave dispatch failed: ${dispatchResult.reason}`,
+        message: oneCall.message,
       };
     }
 
-    if (!dispatchResult.candidates || dispatchResult.candidates.length === 0) {
-      console.warn(`[ORCHESTRATOR] ⚠️  No candidates available to call for slot ${slotId}`);
-      return {
-        success: false,
-        slotId,
-        candidatesCalled: [],
-        callResults: [],
-        message: "No eligible candidates available in waitlist for this slot",
-      };
-    }
-
-    console.log(
-      `[ORCHESTRATOR] ✓ Wave dispatched with ${dispatchResult.candidates.length} candidates selected`,
-    );
-    dispatchResult.candidates.forEach((c, i) => {
-      console.log(`  [${i + 1}] ${c.name} (id: ${c.id}, wait: ${c.waitDays} days)`);
-    });
-
-    // Step 3: Make calls to candidates
-    const callResults: CallResult[] = [];
-    const candidatesCalled: string[] = [];
-
-    for (let i = 0; i < dispatchResult.candidates.length; i++) {
-      const candidate = dispatchResult.candidates[i];
-      const candidateIndex = i + 1;
-
-      console.log(
-        `[ORCHESTRATOR] 📞 [${candidateIndex}/${dispatchResult.candidates.length}] Calling ${candidate.name}...`,
-      );
-
-      const callStartTime = Date.now();
-      const callResult = await callCandidate(candidate, slot);
-      const callDuration = Date.now() - callStartTime;
-
-      callResults.push(callResult);
-      candidatesCalled.push(candidate.id);
-
-      const statusEmoji =
-        callResult.callStatus === "success" ? "✓" : "❌";
-      console.log(
-        `[ORCHESTRATOR] ${statusEmoji} Call to ${candidate.name} ${callResult.callStatus} (${callDuration}ms) - Outcome: ${callResult.outcome}`,
-      );
-
-      // Record the call outcome
-      const outcome: CallOutcome =
-        callResult.outcome === "error" ? "no_answer" : (callResult.outcome ?? "no_answer");
-      console.log(`[ORCHESTRATOR] 📝 Recording outcome: ${outcome}`);
-
-      await recordCallOutcome({
-        slotId,
-        candidateId: candidate.id,
-        outcome,
-        waveId: dispatchResult.wave?.id,
-      });
-
-      // If accepted, stop calling others
-      if (outcome === "accepted") {
-        console.log(
-          `[ORCHESTRATOR] 🎉 Candidate ${candidate.name} ACCEPTED! Closing wave.`,
-        );
-        break;
-      }
-
-      if (outcome === "declined") {
-        console.log(
-          `[ORCHESTRATOR] 👋 Candidate ${candidate.name} declined. Trying next...`,
-        );
-        continue;
-      }
-
-      if (outcome === "no_answer") {
-        console.log(
-          `[ORCHESTRATOR] 📴 Candidate ${candidate.name} did not answer. Trying next...`,
-        );
-        continue;
-      }
+    if (oneCall.callResult.outcome === "ringing") {
+      startOfferingContinuation(slotId);
     }
 
     const waveDuration = Date.now() - waveStartTime;
-    const successCount = callResults.filter((r) => r.callStatus === "success").length;
-    const acceptedCount = callResults.filter((r) => r.outcome === "accepted").length;
 
     console.log(
-      `[ORCHESTRATOR] ✅ Wave completed in ${waveDuration}ms. Called: ${candidatesCalled.length}, Success: ${successCount}, Accepted: ${acceptedCount}`,
+      `[ORCHESTRATOR] ✅ One-call offering loop started in ${waveDuration}ms. Called: ${oneCall.candidate.id}, Outcome: ${oneCall.callResult.outcome}`,
     );
 
     return {
       success: true,
       slotId,
-      candidatesCalled,
-      callResults,
-      message: `Wave completed: called ${candidatesCalled.length} candidates, ${acceptedCount} accepted (${waveDuration}ms)`,
+      candidatesCalled: [oneCall.candidate.id],
+      callResults: [oneCall.callResult],
+      message:
+        oneCall.callResult.outcome === "ringing"
+          ? "One call initiated. OpenSlot will keep trying one candidate at a time until someone books or candidates run out."
+          : oneCall.callResult.message,
     };
   } catch (error) {
     console.error("[ORCHESTRATOR] ❌ Unexpected error in call wave:", error);
@@ -182,6 +113,144 @@ export async function orchestrateCallWave(
       message: error instanceof Error ? error.message : "Unknown error occurred",
     };
   }
+}
+
+async function dispatchOneLiveCall(slotId: string): Promise<
+  | {
+      ok: true;
+      candidate: Candidate;
+      callResult: CallResult;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    }
+> {
+  console.log(
+    `[ORCHESTRATOR] 📋 Dispatching one live demo call. Ranking still runs, but Fonio receives only one call at a time.`,
+  );
+  const dispatchResult = await dispatchNextWave(slotId, LIVE_DEMO_WAVE_SIZE);
+  if (!dispatchResult.ok) {
+    return {
+      ok: false,
+      message: `Wave dispatch failed: ${dispatchResult.reason}`,
+    };
+  }
+
+  const candidate = dispatchResult.candidates?.[0];
+  if (!candidate) {
+    return {
+      ok: false,
+      message: "No eligible candidates available in waitlist for this slot",
+    };
+  }
+
+  console.log(
+    `[ORCHESTRATOR] ✓ Selected ${candidate.name} (id: ${candidate.id}, wait: ${candidate.waitDays} days)`,
+  );
+
+  const callStartTime = Date.now();
+  const callResult = await callCandidate(candidate, dispatchResult.slot);
+  const callDuration = Date.now() - callStartTime;
+
+  const statusEmoji = callResult.callStatus === "success" ? "✓" : "❌";
+  console.log(
+    `[ORCHESTRATOR] ${statusEmoji} Call to ${candidate.name} ${callResult.callStatus} (${callDuration}ms) - Outcome: ${callResult.outcome}`,
+  );
+
+  const outcome: CallOutcome =
+    callResult.outcome === "error" ? "no_answer" : (callResult.outcome ?? "no_answer");
+
+  if (outcome === "ringing") {
+    console.log(
+      `[ORCHESTRATOR] ⏳ Fonio call is ringing. Waiting for after-call webhook before deciding yes/no.`,
+    );
+  } else {
+    console.log(`[ORCHESTRATOR] 📝 Recording failed initiation outcome: ${outcome}`);
+    await recordCallOutcome({
+      slotId,
+      candidateId: candidate.id,
+      outcome,
+      waveId: dispatchResult.wave?.id,
+    });
+  }
+
+  return {
+    ok: true,
+    candidate,
+    callResult,
+    message: callResult.message,
+  };
+}
+
+function startOfferingContinuation(slotId: string) {
+  if (activeOfferingLoops.has(slotId)) {
+    console.log(`[ORCHESTRATOR] 🔁 Offering continuation already active for slot ${slotId}`);
+    return;
+  }
+
+  activeOfferingLoops.add(slotId);
+  void continueOfferingUntilTerminal(slotId)
+    .catch((error) => {
+      console.error(`[ORCHESTRATOR] ❌ Offering continuation failed for ${slotId}:`, error);
+    })
+    .finally(() => {
+      activeOfferingLoops.delete(slotId);
+    });
+}
+
+async function continueOfferingUntilTerminal(slotId: string) {
+  const startedAt = Date.now();
+  let additionalCalls = 0;
+
+  while (
+    additionalCalls < LIVE_DEMO_MAX_ADDITIONAL_CALLS &&
+    Date.now() - startedAt < LIVE_DEMO_MAX_RUNTIME_MS
+  ) {
+    await sleep(LIVE_DEMO_POLL_MS);
+
+    const slot = await getSlot(slotId);
+    if (!slot) {
+      console.log(`[ORCHESTRATOR] 🛑 Slot ${slotId} disappeared; stopping offering loop.`);
+      return;
+    }
+
+    if (["BOOKED", "ESCALATED", "EXPIRED"].includes(slot.status)) {
+      console.log(
+        `[ORCHESTRATOR] 🛑 Slot ${slotId} is ${slot.status}; stopping offering loop.`,
+      );
+      return;
+    }
+
+    if (slot.newWavesPaused || slot.status === "PAUSED_NEW_WAVES") {
+      console.log(`[ORCHESTRATOR] ⏸ New waves are paused for slot ${slotId}.`);
+      return;
+    }
+
+    if (slot.status === "OFFERING" || slot.activeWave?.candidates.length) {
+      console.log(`[ORCHESTRATOR] ⏳ Slot ${slotId} still has a live call; polling again.`);
+      continue;
+    }
+
+    if (slot.status !== "OPEN") {
+      console.log(`[ORCHESTRATOR] ℹ️ Slot ${slotId} is ${slot.status}; polling again.`);
+      continue;
+    }
+
+    const oneCall = await dispatchOneLiveCall(slotId);
+    if (!oneCall.ok) {
+      console.log(`[ORCHESTRATOR] 🛑 ${oneCall.message}`);
+      return;
+    }
+
+    additionalCalls += 1;
+    if (oneCall.callResult.outcome !== "ringing") {
+      console.log(`[ORCHESTRATOR] ℹ️ Call did not reach ringing; checking next candidate soon.`);
+    }
+  }
+
+  console.log(`[ORCHESTRATOR] 🛑 Offering continuation reached the demo safety limit.`);
 }
 
 /**
@@ -278,29 +347,13 @@ async function callCandidate(candidate: Candidate, slot: Slot): Promise<CallResu
       `[CANDIDATE] ✓ Call initiated successfully to ${candidate.name} (call ID: ${fonioResult.callId ?? "N/A"})`,
     );
 
-    // Wait for the call to ring and be processed by Fonio (10 seconds)
-    console.log(
-      `[CANDIDATE] ⏳ Waiting 10 seconds for call to ring and be processed by Fonio...`,
-    );
-    await new Promise((resolve) => setTimeout(resolve, 10000));
-
-    // For Phase 1: Decision is random (will be replaced with transcription analysis)
-    const randomDecision = Math.random();
-    const accepted = randomDecision > 0.5;
-
-    console.log(
-      `[CANDIDATE] 🎲 Decision: ${accepted ? "ACCEPT (random > 0.5)" : "DECLINE (random ≤ 0.5)"} (random value: ${randomDecision.toFixed(3)})`,
-    );
-
     return {
       candidateId: candidate.id,
       candidateName: candidate.name,
       phoneNumber,
       callStatus: "success",
-      outcome: accepted ? "accepted" : "declined",
-      message: accepted
-        ? `${candidate.name} accepted the offer for ${slot.timeLabel} with ${slot.provider}`
-        : `${candidate.name} declined the offer`,
+      outcome: "ringing",
+      message: `Fonio call initiated for ${candidate.name}; awaiting after-call webhook.`,
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
@@ -317,4 +370,8 @@ async function callCandidate(candidate: Candidate, slot: Slot): Promise<CallResu
       message: `Call exception: ${errorMsg}`,
     };
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

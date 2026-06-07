@@ -40,6 +40,15 @@ export interface SlotOpenedInput {
   fillMode?: Slot["fillMode"];
 }
 
+export interface DemoResetResult {
+  ok: boolean;
+  slotsReset: number;
+  waitlistEntriesReset: number;
+  bookingsDeleted: number;
+  callAttemptsDeleted: number;
+  message: string;
+}
+
 interface DbPatient {
   id: string;
   clinic_id: string;
@@ -163,13 +172,73 @@ export async function initializeFromSupabase() {
   await readDbState();
 }
 
+export async function resetDemoState(): Promise<DemoResetResult> {
+  const state = await readDbState();
+  const now = new Date().toISOString();
+  const openableSlotIds = state.slots.map((slot) => slot.id);
+  const waitlistEntryIds = state.waitlistEntries.map((entry) => entry.id);
+  const bookingIds = state.bookings.map((booking) => booking.id);
+  const callAttemptIds = state.callAttempts.map((attempt) => attempt.id);
+
+  if (bookingIds.length) {
+    const { error } = await supabase.from("bookings").delete().in("id", bookingIds);
+    throwIfSupabaseError(error, "reset demo bookings");
+  }
+
+  if (callAttemptIds.length) {
+    const { error } = await supabase.from("call_attempts").delete().in("id", callAttemptIds);
+    throwIfSupabaseError(error, "reset demo call attempts");
+  }
+
+  if (waitlistEntryIds.length) {
+    const { error } = await supabase
+      .from("waitlist_entries")
+      .update({
+        status: "active" as DbWaitlistStatus,
+        snoozed_until: null,
+        priority_score_override: null,
+        updated_at: now,
+      })
+      .in("id", waitlistEntryIds);
+    throwIfSupabaseError(error, "reset demo waitlist entries");
+  }
+
+  if (openableSlotIds.length) {
+    const { error } = await supabase
+      .from("slots")
+      .update({
+        status: "OPEN" as DbSlotStatus,
+        booked_patient_id: null,
+        new_waves_paused: false,
+        needs_attention: false,
+        recovered_min_before_start: null,
+        last_event: "Demo reset: slot is open for offering",
+        reasoning: "Ready to offer candidates one at a time through Fonio.",
+        updated_at: now,
+      })
+      .in("id", openableSlotIds);
+    throwIfSupabaseError(error, "reset demo slots");
+  }
+
+  return {
+    ok: true,
+    slotsReset: openableSlotIds.length,
+    waitlistEntriesReset: waitlistEntryIds.length,
+    bookingsDeleted: bookingIds.length,
+    callAttemptsDeleted: callAttemptIds.length,
+    message: `Demo reset complete: ${openableSlotIds.length} slots opened and ${waitlistEntryIds.length} waitlist entries reactivated.`,
+  };
+}
+
 export async function getBackendState() {
+  await reconcileClosedOfferingSlots();
   const state = await readDbState();
   return mapDbStateToBackendState(state);
 }
 
 export async function getSlot(slotId: string) {
   const normalizedSlotId = normalizeSlotId(slotId);
+  await reconcileClosedOfferingSlots(normalizedSlotId);
   const state = await readDbState();
   const slot = state.slots.find((item) => item.id === normalizedSlotId);
   if (!slot) return null;
@@ -239,6 +308,7 @@ export async function getRankedSlot(slotId: string) {
 
 export async function dispatchNextWave(slotId: string, requestedWaveSize?: number) {
   const normalizedSlotId = normalizeSlotId(slotId);
+  await reconcileClosedOfferingSlots(normalizedSlotId);
   const state = await readDbState();
   const dbSlot = requireDbSlot(state, normalizedSlotId);
   const slot = mapDbSlotToLegacy(dbSlot, state);
@@ -682,6 +752,28 @@ async function readDbState(): Promise<DbState> {
     ]);
 
   return { patients, providers, services, slots, waitlistEntries, callAttempts, bookings };
+}
+
+async function reconcileClosedOfferingSlots(slotId?: string) {
+  const state = await readDbState();
+  const offeringSlots = state.slots.filter(
+    (slot) => slot.status === "OFFERING" && (!slotId || slot.id === slotId),
+  );
+
+  for (const slot of offeringSlots) {
+    const latestAttempts = latestAttemptsByWaitlistEntry(
+      state.callAttempts.filter((attempt) => attempt.slot_id === slot.id),
+    );
+    const hasLiveCall = latestAttempts.some((attempt) => attempt.outcome === "ringing");
+
+    if (hasLiveCall) continue;
+
+    await updateSlot(slot.id, {
+      status: slot.new_waves_paused ? "PAUSED_NEW_WAVES" : "OPEN",
+      last_event: "Previous call finished; ready to try the next candidate",
+      reasoning: "Demo mode keeps one Fonio call live at a time, then continues after the webhook result.",
+    });
+  }
 }
 
 async function selectRows<T>(table: string, columns: string, orderColumn: string): Promise<T[]> {
@@ -1179,6 +1271,17 @@ function latestCallAttemptFor(slotId: string, waitlistEntryId: string, state: Db
 
 function latestCallAttempt(attempts: DbCallAttempt[]) {
   return attempts.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? null;
+}
+
+function latestAttemptsByWaitlistEntry(attempts: DbCallAttempt[]) {
+  const latest = new Map<string, DbCallAttempt>();
+  for (const attempt of attempts) {
+    const current = latest.get(attempt.waitlist_entry_id);
+    if (!current || Date.parse(attempt.created_at) > Date.parse(current.created_at)) {
+      latest.set(attempt.waitlist_entry_id, attempt);
+    }
+  }
+  return Array.from(latest.values());
 }
 
 function contactStatusForCandidate({

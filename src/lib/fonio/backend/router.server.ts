@@ -13,6 +13,7 @@ import {
   getSlot,
   openSlot,
   recordCallOutcome,
+  resetDemoState,
   setSlotPaused,
 } from "./store.server";
 
@@ -156,6 +157,10 @@ export async function handleFonioApiRequest(request: Request): Promise<Response 
     if (request.method === "POST" && url.pathname === "/api/slots/cancel-and-reopen") {
       const { slotId } = slotActionSchema.parse(await readJson(request));
       return json(await cancelAndReopen(slotId));
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/demo/reset") {
+      return json(await resetDemoState());
     }
 
     if (request.method === "POST" && url.pathname === "/api/calls/orchestrate") {

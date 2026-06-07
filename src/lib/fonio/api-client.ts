@@ -102,6 +102,12 @@ export const fonioApi = {
       body: JSON.stringify({ slotId }),
     }),
 
+  resetDemoState: () =>
+    api("/api/demo/reset", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
   orchestrateCallWave: (slotId: string, waveSize?: number) =>
     api("/api/calls/orchestrate", {
       method: "POST",
