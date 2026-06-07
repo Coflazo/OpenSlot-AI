@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 interface Slot {
@@ -31,7 +31,9 @@ export default function Calendar() {
   const [offeringPatients, setOfferingPatients] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentlyCallingIndex, setCurrentlyCallingIndex] = useState<number>(-1);
-  const [slotsAlreadyOffering] = useState<Set<string>>(new Set());
+  const slotsAlreadyOffering = useRef<Set<string>>(new Set());
+  const activeCallSlotId = useRef<string | null>(null); // Track which slot has an active call
+  const lastFailedAttempt = useRef<number>(0); // Track last failed attempt time
   const [openSlotTimestamps] = useState<Map<string, number>>(new Map());
 
   // Fetch slots from API
@@ -181,7 +183,7 @@ export default function Calendar() {
     return `${slot.service_name || "Service"} | ${startTime}-${endTime}`;
   };
 
-  // Load offering patients when modal opens with OFFERING status
+  // Load offering patients when modal opens with OFFERING status (display only, calling is automatic)
   useEffect(() => {
     if (!selectedSlot || selectedSlot.status !== "OFFERING") return;
 
@@ -191,13 +193,9 @@ export default function Calendar() {
         if (response.ok) {
           const data = await response.json();
           setOfferingPatients(data);
-
-          // Auto-start calling the first patient
-          if (data.length > 0) {
-            setTimeout(() => {
-              handleStartFonioCall(data[0], 0);
-            }, 500);
-          }
+          console.log("[CALENDAR] Offering patients loaded for display", {
+            count: data.length,
+          });
         }
       } catch (error) {
         console.error("Error loading offering patients:", error);
@@ -281,59 +279,178 @@ export default function Calendar() {
 
   // Auto-initiate calls for OFFERING slots (without needing to open the modal)
   useEffect(() => {
-    slots.forEach(async (slot) => {
-      if (slot.status === "OFFERING" && !slotsAlreadyOffering.has(slot.id)) {
-        console.log("[CALENDAR] New OFFERING slot detected, fetching patients...", {
-          slotId: slot.id,
-        });
+    const offeringSlots = slots.filter(
+      (slot) => slot.status === "OFFERING" && !slotsAlreadyOffering.current.has(slot.id)
+    );
 
-        slotsAlreadyOffering.add(slot.id);
+    if (offeringSlots.length === 0) return;
 
+    offeringSlots.forEach((slot) => {
+      console.log("[CALENDAR] New OFFERING slot detected, initiating call...", {
+        slotId: slot.id,
+      });
+
+      slotsAlreadyOffering.current.add(slot.id);
+
+      const initiateCall = async () => {
         try {
+          // Fetch patients for this slot
+          const patientsResponse = await fetch(`/api/offerings?slotId=${slot.id}`);
+          if (!patientsResponse.ok) {
+            console.error("[CALENDAR] Failed to fetch patients");
+            return;
+          }
+
+          const patients = await patientsResponse.json();
+          console.log("[CALENDAR] Patients loaded", {
+            count: patients.length,
+            firstPatient: patients[0]?.name,
+          });
+
+          if (patients.length === 0) {
+            console.warn("[CALENDAR] No patients available for slot");
+            return;
+          }
+
+          const patient = patients[0];
+
+          // Start the call immediately
+          console.log("[CALENDAR] Initiating Fonio call for:", patient.name);
+          const callResponse = await fetch("/api/slots/start-call", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slotId: slot.id,
+              patientName: patient.name,
+              patientPhone: patient.phone,
+              slotTime: new Date(slot.starts_at).toLocaleTimeString(),
+              serviceName: slot.service_name,
+            }),
+          });
+
+          if (callResponse.ok) {
+            console.log("[CALENDAR] ✅ Auto-call initiated successfully");
+          } else {
+            const error = await callResponse.json();
+            console.error("[CALENDAR] ❌ Failed to initiate auto-call", error);
+          }
+        } catch (error) {
+          console.error("[CALENDAR] ❌ Error in auto-call:", error);
+        }
+      };
+
+      // Initiate call immediately (no delay)
+      initiateCall();
+    });
+  }, [slots]);
+
+  // Monitor offerings for ALL OFFERING slots (even when modal is closed)
+  useEffect(() => {
+    // Find all OFFERING slots ONLY
+    const offeringSlots = slots.filter((slot) => slot.status === "OFFERING");
+
+    if (offeringSlots.length === 0) {
+      console.log("[CALENDAR] No OFFERING slots to monitor");
+      return;
+    }
+
+    console.log("[CALENDAR] Monitoring offerings for", offeringSlots.length, "slot(s)");
+
+    const checkForNextPatient = async () => {
+      for (const slot of offeringSlots) {
+        try {
+          // Fetch latest offerings for this slot
           const response = await fetch(`/api/offerings?slotId=${slot.id}`);
-          if (response.ok) {
-            const patients = await response.json();
-            console.log("[CALENDAR] Patients loaded, initiating call...", {
-              count: patients.length,
-              firstPatient: patients[0]?.name,
-            });
+          if (!response.ok) continue;
 
-            if (patients.length > 0) {
-              // Auto-start calling the first patient without opening modal
-              setTimeout(async () => {
-                const patient = patients[0];
-                console.log("[CALENDAR] Starting auto-call for:", patient.name);
+          const offerings = await response.json();
+          console.log("[CALENDAR] Background offering check", {
+            slotId: slot.id,
+            offeringCount: offerings.length,
+            slotStatus: slot.status,
+          });
 
-                try {
-                  const response = await fetch("/api/slots/start-call", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      slotId: slot.id,
-                      patientName: patient.name,
-                      patientPhone: patient.phone,
-                      slotTime: new Date(slot.starts_at).toLocaleTimeString(),
-                      serviceName: slot.service_name,
-                    }),
-                  });
+          // IMPORTANT: Only call if slot is still OFFERING
+          // If slot changed to BOOKED, offerings should be empty anyway
+          if (slot.status !== "OFFERING") {
+            console.log("[CALENDAR] Slot is no longer OFFERING, skipping");
+            continue;
+          }
 
-                  if (response.ok) {
-                    console.log("[CALENDAR] Auto-call initiated successfully");
-                  } else {
-                    console.error("[CALENDAR] Failed to initiate auto-call");
-                  }
-                } catch (error) {
-                  console.error("[CALENDAR] Error in auto-call:", error);
-                }
-              }, 500);
+          // If there are offerings available and no active call, call the first one
+          if (offerings.length > 0) {
+            const now = Date.now();
+            const failureCooldownMs = 8000; // 8 second cooldown after failure
+
+            // Only allow ONE call at a time (Fonio can only handle one)
+            // Also respect cooldown period after failures
+            if (
+              (activeCallSlotId.current === null || activeCallSlotId.current === slot.id) &&
+              (now - lastFailedAttempt.current) > failureCooldownMs
+            ) {
+              console.log(
+                "[CALENDAR] Available patient found, initiating call:",
+                offerings[0].name
+              );
+
+              activeCallSlotId.current = slot.id;
+
+              // Parse the slot time correctly (handling UTC offset for Austria/Vienna timezone)
+              const slotDate = new Date(slot.starts_at);
+              // Subtract 2 hours for UTC+2 offset (same as calendar)
+              slotDate.setHours(slotDate.getHours() - 2);
+              const formattedTime = slotDate.toLocaleTimeString("de-AT", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+
+              const callResponse = await fetch("/api/slots/start-call", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  slotId: slot.id,
+                  patientName: offerings[0].name,
+                  patientPhone: offerings[0].phone,
+                  slotTime: formattedTime,
+                  serviceName: slot.service_name,
+                }),
+              });
+
+              if (callResponse.ok) {
+                console.log("[CALENDAR] ✅ Call initiated for slot:", slot.id);
+                lastFailedAttempt.current = 0; // Reset on success
+              } else {
+                console.error("[CALENDAR] ❌ Failed to initiate call for slot:", slot.id);
+                activeCallSlotId.current = null; // Clear on failure
+                lastFailedAttempt.current = now; // Track failure time
+              }
+            } else {
+              console.log("[CALENDAR] ⏳ Another call is active, waiting...", {
+                activeSlot: activeCallSlotId.current,
+                currentSlot: slot.id,
+              });
+            }
+          } else {
+            console.log("[CALENDAR] ⚠️ No more patients available for slot:", slot.id);
+            // Clear active call when no more patients
+            if (activeCallSlotId.current === slot.id) {
+              activeCallSlotId.current = null;
             }
           }
         } catch (error) {
-          console.error("[CALENDAR] Error auto-starting call:", error);
+          console.error("[CALENDAR] Error checking offerings for slot:", error);
         }
       }
-    });
-  }, [slots, slotsAlreadyOffering]);
+    };
+
+    // Check every 1 second for changes in offerings
+    const interval = setInterval(checkForNextPatient, 1000);
+    return () => {
+      console.log("[CALENDAR] Clearing offering monitor interval");
+      clearInterval(interval);
+    };
+  }, [slots]);
 
   const handleStartFonioCall = async (patient: any, index: number = 0) => {
     if (!selectedSlot || !patient) return;
