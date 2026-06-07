@@ -167,6 +167,7 @@ interface ResolvedCandidate {
 }
 
 const DEFAULT_CONTACT_LIMIT = 2;
+const RINGING_TIMEOUT_MS = 120_000;
 
 export async function initializeFromSupabase() {
   await readDbState();
@@ -755,6 +756,8 @@ async function readDbState(): Promise<DbState> {
 }
 
 async function reconcileClosedOfferingSlots(slotId?: string) {
+  await closeResolvedRingingAttempts(slotId);
+
   const state = await readDbState();
   const offeringSlots = state.slots.filter(
     (slot) => slot.status === "OFFERING" && (!slotId || slot.id === slotId),
@@ -774,6 +777,64 @@ async function reconcileClosedOfferingSlots(slotId?: string) {
       reasoning: "Demo mode keeps one Fonio call live at a time, then continues after the webhook result.",
     });
   }
+}
+
+async function closeResolvedRingingAttempts(slotId?: string) {
+  const state = await readDbState();
+  const now = Date.now();
+  const attemptsBySlot = new Map<string, DbCallAttempt[]>();
+
+  for (const attempt of state.callAttempts) {
+    if (slotId && attempt.slot_id !== slotId) continue;
+    attemptsBySlot.set(attempt.slot_id, [...(attemptsBySlot.get(attempt.slot_id) ?? []), attempt]);
+  }
+
+  const activeBookingsByPatient = new Map<string, DbBooking[]>();
+  for (const booking of state.bookings.filter((item) => item.status === "ACTIVE")) {
+    activeBookingsByPatient.set(booking.patient_id, [
+      ...(activeBookingsByPatient.get(booking.patient_id) ?? []),
+      booking,
+    ]);
+  }
+
+  const resolvedAttempts = Array.from(attemptsBySlot.values())
+    .flatMap((attempts) => latestAttemptsByWaitlistEntry(attempts))
+    .flatMap((attempt) => {
+      if (attempt.outcome !== "ringing") return [];
+
+      const timestamp = Date.parse(attempt.started_at ?? attempt.created_at);
+      if (Number.isNaN(timestamp)) return [];
+
+      const acceptedAlternative = activeBookingsByPatient
+        .get(attempt.patient_id)
+        ?.some((booking) => {
+          const bookingTimestamp = Date.parse(booking.booked_at ?? booking.created_at);
+          return !Number.isNaN(bookingTimestamp) && bookingTimestamp >= timestamp;
+        });
+
+      if (acceptedAlternative) {
+        return [{ attempt, outcome: "booked" as CallOutcome }];
+      }
+
+      if (now - timestamp > RINGING_TIMEOUT_MS) {
+        return [{ attempt, outcome: "no_answer" as CallOutcome }];
+      }
+
+      return [];
+    });
+
+  await Promise.all(
+    resolvedAttempts.map(async ({ attempt, outcome }) => {
+      const { error } = await supabase
+        .from("call_attempts")
+        .update({
+          outcome,
+          ended_at: new Date().toISOString(),
+        })
+        .eq("id", attempt.id);
+      throwIfSupabaseError(error, "close resolved ringing attempt");
+    }),
+  );
 }
 
 async function selectRows<T>(table: string, columns: string, orderColumn: string): Promise<T[]> {

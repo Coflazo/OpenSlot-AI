@@ -14,6 +14,8 @@ import { buildSlotViews, buildWaitlistViews, createOpenSlotDbFromLegacy } from "
 import { initialSlots, initialWaitlist } from "./mock-data";
 import type { Alert, OpenSlotDbState, Slot, SlotView, WaitlistEntry, WaitlistView } from "./types";
 
+const LIVE_REFRESH_MS = 3_000;
+
 interface FonioContextValue {
   db: OpenSlotDbState;
   slots: SlotView[];
@@ -83,32 +85,34 @@ export function FonioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
-    async function hydrateFromApi() {
+    async function refreshFromApi() {
+      if (cancelled || inFlight) return;
+      inFlight = true;
       try {
-        const [slotsResponse, waitlistResponse] = (await Promise.all([
-          fonioApi.listSlots(),
-          fonioApi.listWaitlist(),
-        ])) as [{ slots: Slot[] }, { waitlist: WaitlistEntry[] }];
-        if (!cancelled) {
-          setDb(createOpenSlotDbFromLegacy(slotsResponse.slots, waitlistResponse.waitlist));
-          setSelectedSlotId((current) =>
-            current && slotsResponse.slots.some((slot) => slot.id === current)
-              ? current
-              : (slotsResponse.slots[0]?.id ?? null),
-          );
-        }
+        await hydrateBackendState();
       } catch {
-        // Keep the static mock state if the local API is not available yet.
+        // Keep the current state if the local API is not available yet.
+      } finally {
+        inFlight = false;
       }
     }
 
-    void hydrateFromApi();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshFromApi();
+    };
+
+    void refreshFromApi();
+    const intervalId = window.setInterval(refreshFromApi, LIVE_REFRESH_MS);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, []);
+  }, [hydrateBackendState]);
 
   const derivedAlerts = useMemo(() => buildAttentionAlerts(slots), [slots]);
 
