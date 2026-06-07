@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
   subsets: ["latin"],
 });
 
@@ -25,12 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
-      suppressHydrationWarning
-    >
-      <body className="h-full flex bg-slate-950 text-slate-50">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <body className={`${outfit.className} h-full flex`} style={{ backgroundColor: 'var(--background)', color: 'var(--foreground)' }}>
         {/* Sidebar fijo */}
         <Sidebar />
 
@@ -40,7 +30,7 @@ export default function RootLayout({
           <Header />
 
           {/* Content */}
-          <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900">
+          <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--background)' }}>
             {children}
           </main>
         </div>
