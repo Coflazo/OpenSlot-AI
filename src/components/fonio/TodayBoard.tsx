@@ -13,20 +13,24 @@ const urgencyRank = (s: ReturnType<typeof useFonio>["slots"][number]) => {
 };
 
 export function TodayBoard() {
-  const { slots, selectedSlotId, selectSlot } = useFonio();
+  const { slots, selectedSlotId, selectSlot, simulationMode } = useFonio();
   const sorted = [...slots].sort((a, b) => urgencyRank(a) - urgencyRank(b));
 
   return (
     <div className="flex min-w-0 flex-col bg-card 2xl:h-full">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold">Today board</h2>
-          <p className="text-xs text-muted-foreground">Sorted by urgency</p>
+          <h2 className="text-sm font-semibold">
+            {simulationMode ? "4-week simulation board" : "Today board"}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {simulationMode ? "Date, day, and time across the simulated run" : "Sorted by urgency"}
+          </p>
         </div>
         <div className="text-xs text-muted-foreground">{slots.length} slots</div>
       </div>
-      <div className="hidden grid-cols-[96px_minmax(136px,1fr)_minmax(116px,0.9fr)_128px_minmax(158px,1.05fr)_minmax(160px,1.2fr)] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid">
-        <div>Time</div>
+      <div className="hidden grid-cols-[156px_minmax(136px,1fr)_minmax(116px,0.9fr)_128px_minmax(158px,1.05fr)_minmax(160px,1.2fr)] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid">
+        <div>Date / time</div>
         <div>Provider</div>
         <div>Service</div>
         <div>Status</div>
@@ -41,7 +45,7 @@ export function TodayBoard() {
             <button
               key={s.id}
               onClick={() => selectSlot(s.id)}
-              className={`w-full border-b border-border px-4 py-3 text-left text-sm transition-colors hover:bg-accent/60 lg:grid lg:grid-cols-[96px_minmax(136px,1fr)_minmax(116px,0.9fr)_128px_minmax(158px,1.05fr)_minmax(160px,1.2fr)] lg:items-center lg:gap-3 ${
+              className={`w-full border-b border-border px-4 py-3 text-left text-sm transition-colors hover:bg-accent/60 lg:grid lg:grid-cols-[156px_minmax(136px,1fr)_minmax(116px,0.9fr)_128px_minmax(158px,1.05fr)_minmax(160px,1.2fr)] lg:items-center lg:gap-3 ${
                 sel ? "bg-accent" : "bg-card"
               }`}
             >
@@ -54,9 +58,7 @@ export function TodayBoard() {
                         aria-label="Needs attention"
                       />
                     )}
-                    <span className="shrink-0 font-mono font-medium tabular-nums">
-                      {s.timeLabel}
-                    </span>
+                    <SlotDateTime slot={s} />
                     <div className="min-w-0">
                       <div className="truncate font-medium">{s.provider.display_name}</div>
                       <div className="truncate text-xs text-muted-foreground">{s.service.name}</div>
@@ -87,9 +89,7 @@ export function TodayBoard() {
                     aria-label="Needs attention"
                   />
                 )}
-                <span className="shrink-0 whitespace-nowrap font-mono font-medium tabular-nums">
-                  {s.timeLabel}
-                </span>
+                <SlotDateTime slot={s} compact />
               </div>
               <div className="hidden min-w-0 truncate lg:block">{s.provider.display_name}</div>
               <div className="hidden min-w-0 truncate text-muted-foreground lg:block">
@@ -113,6 +113,41 @@ export function TodayBoard() {
         })}
       </div>
     </div>
+  );
+}
+
+function SlotDateTime({
+  slot,
+  compact = false,
+}: {
+  slot: ReturnType<typeof useFonio>["slots"][number];
+  compact?: boolean;
+}) {
+  const date = new Date(slot.row.starts_at);
+  const day = new Intl.DateTimeFormat("en", { weekday: "short" }).format(date);
+  const monthDay = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
+
+  if (compact) {
+    return (
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-xs text-muted-foreground">
+          {day}, {monthDay}
+        </span>
+        <span className="font-mono font-medium tabular-nums">{slot.timeLabel}</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex shrink-0 flex-col leading-tight">
+      <span className="text-xs text-muted-foreground">
+        {day}, {monthDay}
+      </span>
+      <span className="font-mono font-medium tabular-nums">{slot.timeLabel}</span>
+    </span>
   );
 }
 

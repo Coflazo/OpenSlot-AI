@@ -9,7 +9,7 @@ export function AttentionRail({
 }: {
   onOpenSlot: (slotId: string, actionKind: Alert["actionKind"]) => void;
 }) {
-  const { alerts, dismissAlert } = useFonio();
+  const { alerts, dismissAlert, simulationMode, simulationLogs } = useFonio();
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-t border-border bg-card 2xl:h-full 2xl:w-[340px] 2xl:border-l 2xl:border-t-0">
@@ -20,7 +20,25 @@ export function AttentionRail({
           {alerts.length}
         </span>
       </div>
-      <div className={alerts.length === 0 ? "p-3" : "flex-1 space-y-2 overflow-y-auto p-3"}>
+      <div className="flex-1 space-y-3 overflow-y-auto p-3">
+        {simulationMode && (
+          <div className="rounded-md border border-border bg-background">
+            <div className="border-b border-border px-3 py-2">
+              <p className="text-xs font-semibold">Simulation log</p>
+              <p className="text-[11px] text-muted-foreground">
+                Fast replay of ranking, calls, and bookings
+              </p>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto p-3">
+              {simulationLogs.map((log) => (
+                <div key={log.id} className="border-l-2 border-primary/50 pl-2">
+                  <div className="text-[11px] font-medium text-muted-foreground">{log.at}</div>
+                  <div className="text-xs leading-snug">{log.message}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {alerts.length === 0 && (
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">
             No urgent items. Automation is handling the queue.
