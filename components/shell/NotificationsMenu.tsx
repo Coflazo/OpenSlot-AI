@@ -15,7 +15,7 @@ const items = [
   {
     icon: <CoinIcon size={14} weight="fill" className="text-saffron-600" />,
     title: "Slot recovered",
-    body: "MRI Knee 16:30 filled by Alex Berger — €420 recovered.",
+    body: "MRI Knee 16:30 filled by Alex Berger. €420 recovered.",
     when: "2m ago"
   },
   {

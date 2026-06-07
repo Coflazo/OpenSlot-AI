@@ -16,7 +16,7 @@ const STAGES = [
 
 export function SlotWorkflowTimeline({ slotId }: { slotId: string }) {
   const slot = useStore((s) => s.slots.find((x) => x.id === slotId));
-  const calls = useStore((s) => s.calls.filter((c) => c.slotId === slotId));
+  const calls = useStore((s) => s.calls).filter((c) => c.slotId === slotId);
 
   if (!slot) return null;
   const reached = (() => {

@@ -1,5 +1,5 @@
 // Smoke test for the cascade demo math. Run via: npx tsx lib/algo/__tests__/upgradeScore.test.ts
-// (no test framework installed by design — this file logs pass/fail)
+// (no test framework installed by design. This file logs pass/fail.)
 
 import { upgradeScore } from "../upgradeScore";
 import { waitlistScore } from "../waitlistScore";

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { updateDemoCall } from "@/lib/fonio/demoCallStore";
 
 export const runtime = "nodejs";
 
@@ -16,9 +17,22 @@ export async function POST(req: NextRequest) {
   if (!tokenValid(req)) return NextResponse.json({ ok: false }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const offerId = body?.offer_id as string | undefined;
+  const offerId = (
+    body?.offer_id ??
+    body?.offerId ??
+    body?.context?.offer_id ??
+    body?.context?.offerId ??
+    body?.variables?.offer_id ??
+    body?.variables?.offerId
+  ) as string | undefined;
   if (!offerId) {
     return NextResponse.json({ proceed: false, instruction: "Missing offer_id. End the call politely." });
+  }
+
+  // Demo calls live in-memory; just say proceed.
+  if (offerId.startsWith("demo_")) {
+    updateDemoCall(offerId, { status: "in_progress" });
+    return NextResponse.json({ proceed: true });
   }
 
   const supabase = createSupabaseServiceClient();

@@ -54,7 +54,7 @@ export async function upsertSlotEvent(params: {
 
   const event: calendar_v3.Schema$Event = {
     id: eventId,
-    summary: `${params.service} — ${params.customerName}`,
+    summary: `${params.service} · ${params.customerName}`,
     location: params.location,
     description: `Managed by OpenSlot AI. Status: ${params.status}.`,
     start: { dateTime: params.startTime, timeZone: tz },

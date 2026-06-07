@@ -33,7 +33,7 @@ export function CreateOpenSlotDialog({ trigger }: { trigger?: React.ReactNode })
   const [service, setService] = useState<ServiceCode>("MRI Knee");
   const [time, setTime] = useState("16:30");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [location, setLocation] = useState("Vienna Private Imaging — Innere Stadt");
+  const [location, setLocation] = useState("Vienna Private Imaging,Innere Stadt");
 
   const addSlot = useStore((s) => s.slots);
   const appendAudit = useStore((s) => s.appendAudit);
@@ -105,8 +105,8 @@ export function CreateOpenSlotDialog({ trigger }: { trigger?: React.ReactNode })
             <Select value={location} onValueChange={setLocation}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Vienna Private Imaging — Innere Stadt">Innere Stadt</SelectItem>
-                <SelectItem value="Vienna Private Imaging — Mariahilf">Mariahilf</SelectItem>
+                <SelectItem value="Vienna Private Imaging,Innere Stadt">Innere Stadt</SelectItem>
+                <SelectItem value="Vienna Private Imaging,Mariahilf">Mariahilf</SelectItem>
               </SelectContent>
             </Select>
           </div>

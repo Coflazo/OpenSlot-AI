@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Service-role client — bypasses RLS. Server-only. NEVER ship to the browser.
+// Service-role client. Bypasses RLS. Server-only. NEVER ship to the browser.
 // Used by recovery loop, webhook receivers, and DSAR jobs.
 
 let cached: SupabaseClient | null = null;

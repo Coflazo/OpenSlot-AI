@@ -56,7 +56,7 @@ export function CandidateRow({
           {isBlocked && <Badge tone="sienna">Blocked</Badge>}
         </div>
         <div className="text-meta text-ink-500 flex items-center gap-3 flex-wrap mt-0.5">
-          <span>{customer.requestedService ?? "—"}</span>
+          <span>{customer.requestedService ?? "-"}</span>
           {customer.waitingSince && (
             <span className="text-ink-400">Waiting since {shortDate(customer.waitingSince)}</span>
           )}

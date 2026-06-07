@@ -83,7 +83,7 @@ export default function IntegrationsPage() {
         <IntegrationCard
           icon={<PuzzlePieceIcon size={20} weight="duotone" className="text-saffron-600" />}
           title="Airtable"
-          body="Bidirectional sync with a base — read waitlist, write bookings."
+          body="Bidirectional sync with a base. Read waitlist, write bookings."
           actionLabel="Connect base"
         />
         <IntegrationCard
@@ -100,7 +100,7 @@ export default function IntegrationsPage() {
         />
         <IntegrationCard
           icon={<PhoneIcon size={20} weight="duotone" className="text-saffron-700" />}
-          title="Phone — Fonio"
+          title="Phone · Fonio"
           body="Outbound AI voice agent. Already wired to the dashboard."
           status="Connected"
           actionLabel="Manage Fonio"

@@ -128,7 +128,7 @@ export default function CustomersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{c.requestedService ?? "—"}</td>
+                    <td className="px-4 py-3">{c.requestedService ?? "-"}</td>
                     <td className="px-4 py-3">
                       {consentOk ? (
                         <span className="inline-flex items-center gap-1 text-vert-700 text-[12.5px] font-[600]">
@@ -154,7 +154,7 @@ export default function CustomersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-ink-500">
-                      {c.waitingSince ? shortDate(c.waitingSince) : "—"}
+                      {c.waitingSince ? shortDate(c.waitingSince) : "-"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

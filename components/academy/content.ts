@@ -59,9 +59,9 @@ export const chapters: AcademyChapter[] = [
         items: [
           "Open Integrations → Google Calendar → Connect",
           "Sign in with the clinic's Google account",
-          "Grant calendar.events + calendar.freebusy (narrow scopes — not calendar)",
+          "Grant calendar.events + calendar.freebusy (narrow scopes, not calendar)",
           "We store the access + refresh tokens encrypted with AES-256-GCM",
-          "First sync runs within 5 minutes — verify on /calendar",
+          "First sync runs within 5 minutes. Verify on /calendar",
           "Cancelling an event in Google triggers a cascade within 5 min (polling), instantly with push channels"
         ]
       },
@@ -99,7 +99,7 @@ export const chapters: AcademyChapter[] = [
           "requested_service (MRI Knee, MRI Brain, MRI Spine, CT Chest, CT Abdomen, Ultrasound, X-ray)",
           "call_consent, sms_consent, recording_consent (true/false)",
           "safety_form_complete, referral_received, payment_ready, authorization_approved",
-          "home_postcode, home_lat, home_lng (route feasibility — fall back to postcode lookup if lat/lng missing)"
+          "home_postcode, home_lat, home_lng (route feasibility, falls back to postcode lookup if lat/lng missing)"
         ]
       },
       {
@@ -130,13 +130,13 @@ export const chapters: AcademyChapter[] = [
           { k: "recording_consent", v: "may the call be recorded (30-day retention)" },
           { k: "consent_source", v: "online form / phone / paper / import" },
           { k: "consent_timestamp", v: "when consent was captured" },
-          { k: "withdrawn_at", v: "set on opt-out — irreversible block" }
+          { k: "withdrawn_at", v: "set on opt-out, irreversible block" }
         ]
       },
       {
         kind: "callout",
         tone: "warn",
-        text: "Withdrawal is real. enforce_consent_before_call() is a database trigger — even our backend cannot bypass it."
+        text: "Withdrawal is real. enforce_consent_before_call() is a database trigger. Even our backend cannot bypass it."
       }
     ]
   },
@@ -174,15 +174,15 @@ export const chapters: AcademyChapter[] = [
       {
         kind: "list",
         items: [
-          "Hard filters — boolean gates (consent, eligibility, travel, cooldown). Failing any one removes the candidate.",
-          "Soft scoring — weighted sum of factors. Tweak weights and the /algorithm page updates instantly.",
-          "Aggression — time-left → call concurrency (calm 1 / focused 2 / aggressive 5 / emergency 10)."
+          "Hard filters: boolean gates (consent, eligibility, travel, cooldown). Failing any one removes the candidate.",
+          "Soft scoring: weighted sum of factors. Tweak weights and the /algorithm page updates instantly.",
+          "Aggression: time-left to call concurrency (calm 1 / focused 2 / aggressive 5 / emergency 10)."
         ]
       },
       {
         kind: "callout",
         tone: "info",
-        text: "Visit /algorithm side by side with /rules — every slider movement re-ranks candidates and re-paints the score bars."
+        text: "Visit /algorithm side by side with /rules. Every slider movement re-ranks candidates and re-paints the score bars."
       }
     ]
   },
@@ -204,7 +204,7 @@ export const chapters: AcademyChapter[] = [
           "1. Sign in at app.fonio.ai and create an Assistant.",
           "2. Paste the Perfect Fonio Prompt (next chapter has the exact text) into the Assistant prompt field.",
           "3. Pick the voice ('Multi' for multilingual EN/DE/TR).",
-          "4. Buy an Import Number (~€5/mo) for outbound — Fonio Numbers are inbound-only.",
+          "4. Buy an Import Number (~€5/mo) for outbound. Fonio Numbers are inbound-only.",
           "5. In the Assistant settings, set Webhook URLs (with ?token=FONIO_WEBHOOK_TOKEN): Inbound → /api/fonio/inbound, Mid-call → /api/fonio/mid-call, Post-call → /api/fonio/post-call.",
           "6. Configure Variable Extraction (Technical → Variable Extraction Active) with: slotAccepted, identityConfirmed, askedMedicalQuestion, wantsCallback, voicemail, optOut, customerLanguage, customerPickedAlternateTime.",
           "7. Configure post-call Send Email actions: confirmation to customer (when slotAccepted), summary to clinic ops always.",
@@ -216,7 +216,7 @@ export const chapters: AcademyChapter[] = [
       {
         kind: "callout",
         tone: "warn",
-        text: "Turn OFF Fonio's built-in scheduler for this assistant. We do the slot lock + Google Calendar write ourselves — letting Fonio also write would create duplicates."
+        text: "Turn OFF Fonio's built-in scheduler for this assistant. We do the slot lock + Google Calendar write ourselves. Letting Fonio also write would create duplicates."
       },
       { kind: "h", text: "Phone numbers" },
       {
@@ -266,9 +266,9 @@ export const chapters: AcademyChapter[] = [
       {
         kind: "list",
         items: [
-          "Needs review — wrong person, medical question, slot already taken, recording consent issue, webhook failed",
-          "Voicemail / No answer — fallback flow already handled, but skim for opt-out signals",
-          "Accepted — confirm the post-call Send Email actually sent (Calls detail → Email status)"
+          "Needs review: wrong person, medical question, slot already taken, recording consent issue, webhook failed",
+          "Voicemail / No answer: fallback flow already handled, but skim for opt-out signals",
+          "Accepted: confirm the post-call Send Email actually sent (Calls detail to Email status)"
         ]
       }
     ]
@@ -314,19 +314,19 @@ export const chapters: AcademyChapter[] = [
     estimatedMinutes: 10,
     cta: { label: "Open Compliance", href: "/compliance" },
     body: [
-      { kind: "p", text: "OpenSlot AI is designed around consent, data minimization, auditability, access controls, and deletion workflows. Real compliance always requires legal review — code can be GDPR-by-default but not GDPR-certified by itself." },
+      { kind: "p", text: "OpenSlot AI is designed around consent, data minimization, auditability, access controls, and deletion workflows. Real compliance always requires legal review. Code can be GDPR-by-default but not GDPR-certified by itself." },
       { kind: "h", text: "What's baked in" },
       {
         kind: "list",
         items: [
-          "Article 5 — no diagnosis, no symptoms, no scan results in our DB. Only scheduling + consent + route fields.",
-          "Article 6/9 — every audit row carries a lawful_basis_tag (contract / consent / legitimate-interest / vital-interest).",
-          "Article 7 — withdrawn_at column triggers a hard block via Postgres trigger.",
-          "Article 15 — DSAR export at /api/dsar/{customerId}/export returns a zip of everything touching that customer.",
-          "Article 17 — erasure at /api/dsar/{customerId}/delete anonymizes audit history (preserves the trail) and hard-deletes consents.",
-          "Article 25 — privacy by design: AES-256-GCM tokens, RLS on every table, no service role key in the browser.",
-          "Article 32 — security: encryption at rest, role-based access via clinic_members.role, no plaintext secrets.",
-          "Article 46 — international transfer: documented; SCCs are your contractual work with Fonio + Supabase + Google."
+          "Article 5: no diagnosis, no symptoms, no scan results in our DB. Only scheduling + consent + route fields.",
+          "Article 6/9: every audit row carries a lawful_basis_tag (contract / consent / legitimate-interest / vital-interest).",
+          "Article 7: withdrawn_at column triggers a hard block via Postgres trigger.",
+          "Article 15: DSAR export at /api/dsar/{customerId}/export returns a zip of everything touching that customer.",
+          "Article 17: erasure at /api/dsar/{customerId}/delete anonymizes audit history (preserves the trail) and hard-deletes consents.",
+          "Article 25: privacy by design. AES-256-GCM tokens, RLS on every table, no service role key in the browser.",
+          "Article 32: security. Encryption at rest, role-based access via clinic_members.role, no plaintext secrets.",
+          "Article 46: international transfer documented. SCCs are your contractual work with Fonio + Supabase + Google."
         ]
       },
       { kind: "h", text: "Retention defaults" },

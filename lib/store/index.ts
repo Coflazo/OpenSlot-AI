@@ -15,6 +15,11 @@ import { HERO_SLOT_ID, slots as seedSlots } from "../mock/slots";
 import { seedAuditLog } from "../mock/auditLog";
 import { defaultRules } from "./defaultRules";
 import { seedCascadeDemo } from "../mock/cascadeDemo";
+import {
+  TWO_PERSON_CAGAN_SLOT_ID,
+  TWO_PERSON_CUSTOMERS,
+  TWO_PERSON_SLOTS
+} from "../mock/twoPersonDemo";
 
 export interface AppState {
   // Data
@@ -34,6 +39,7 @@ export interface AppState {
   // UI
   activeSlotId: string | null;
   isSimulating: boolean;
+  datasetMode: "realistic" | "two_person";
   demoStep:
     | "idle"
     | "cancelled"
@@ -43,13 +49,19 @@ export interface AppState {
     | "sara_declined"
     | "mia_calling"
     | "mia_accepted"
+    | "cagan_calling"
+    | "cagan_accepted"
+    | "ash_calling"
+    | "ash_accepted"
     | "completed";
 
   // Actions
   setActiveSlot(id: string | null): void;
+  setDatasetMode(mode: "realistic" | "two_person"): void;
   resetDemo(): void;
   cancelSlot(slotId: string): void;
   runDemoCascade(): Promise<void>;
+  runTwoPersonDemo(): Promise<void>;
   pauseSlot(slotId: string): void;
   resumeSlot(slotId: string): void;
   closeSlot(slotId: string, reason: string): void;
@@ -76,6 +88,56 @@ export interface AppState {
 
 let auditCounter = 0;
 let callCounter = 0;
+const REAL_DEMO_CALL_TIMEOUT_MS = 5 * 60_000;
+const FINAL_DEMO_STATUSES = new Set<CallSession["status"]>([
+  "accepted",
+  "declined",
+  "no_answer",
+  "voicemail",
+  "failed"
+]);
+
+type DemoCallStartParams = {
+  customerId: string;
+  slotId: string;
+  type: CallSession["type"];
+  slotTime: string;
+  arrivalTime: string;
+  offerIntroLine: string;
+  currentSlotTime?: string;
+  newSlotTime?: string;
+  serviceName?: string;
+  location?: string;
+};
+
+type DemoCallStartResponse = {
+  ok?: boolean;
+  offerId?: string;
+  providerCallId?: string;
+  reason?: string;
+  hint?: string;
+  error?: string;
+};
+
+type DemoCallPollResponse = {
+  ok?: boolean;
+  reason?: string;
+  call?: {
+    status: CallSession["status"];
+    startedAt: string;
+    endedAt?: string;
+    durationSeconds?: number;
+    extraction?: {
+      identityConfirmed?: boolean;
+      slotAccepted?: boolean;
+      askedMedicalQuestion?: boolean;
+      wantsCallback?: boolean;
+      voicemail?: boolean;
+    };
+    recordingUrl?: string;
+    error?: string;
+  };
+};
 
 function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -103,26 +165,79 @@ export const useStore = create<AppState>((set, get) => ({
 
   activeSlotId: null,
   isSimulating: false,
+  datasetMode: "realistic",
   demoStep: "idle",
 
   setActiveSlot(id) {
     set({ activeSlotId: id });
   },
 
+  setDatasetMode(mode) {
+    if (get().datasetMode === mode) return;
+    if (mode === "two_person") {
+      set({
+        customers: TWO_PERSON_CUSTOMERS.map((c) => ({ ...c })),
+        slots: TWO_PERSON_SLOTS.map((s) => ({ ...s })),
+        calls: [],
+        cascadeChains: [],
+        audit: [],
+        recoveredRevenue: 0,
+        slotsSaved: 0,
+        scannerMinutesRecovered: 0,
+        activeSlotId: TWO_PERSON_CAGAN_SLOT_ID,
+        demoStep: "idle",
+        isSimulating: false,
+        datasetMode: "two_person"
+      });
+    } else {
+      set({
+        customers: seedCustomers,
+        slots: seedSlots.map((s) => ({ ...s })),
+        calls: [],
+        cascadeChains: [],
+        audit: seedAuditLog,
+        recoveredRevenue: 12_840,
+        slotsSaved: 38,
+        scannerMinutesRecovered: 28 * 60 + 15,
+        activeSlotId: null,
+        demoStep: "idle",
+        isSimulating: false,
+        datasetMode: "realistic"
+      });
+    }
+  },
+
   resetDemo() {
-    set({
-      customers: seedCustomers,
-      slots: seedSlots.map((s) => ({ ...s })),
-      calls: [],
-      cascadeChains: [],
-      audit: seedAuditLog,
-      recoveredRevenue: 12_840,
-      slotsSaved: 38,
-      scannerMinutesRecovered: 28 * 60 + 15,
-      activeSlotId: null,
-      demoStep: "idle",
-      isSimulating: false
-    });
+    const mode = get().datasetMode;
+    if (mode === "two_person") {
+      set({
+        customers: TWO_PERSON_CUSTOMERS.map((c) => ({ ...c })),
+        slots: TWO_PERSON_SLOTS.map((s) => ({ ...s })),
+        calls: [],
+        cascadeChains: [],
+        audit: [],
+        recoveredRevenue: 0,
+        slotsSaved: 0,
+        scannerMinutesRecovered: 0,
+        activeSlotId: TWO_PERSON_CAGAN_SLOT_ID,
+        demoStep: "idle",
+        isSimulating: false
+      });
+    } else {
+      set({
+        customers: seedCustomers,
+        slots: seedSlots.map((s) => ({ ...s })),
+        calls: [],
+        cascadeChains: [],
+        audit: seedAuditLog,
+        recoveredRevenue: 12_840,
+        slotsSaved: 38,
+        scannerMinutesRecovered: 28 * 60 + 15,
+        activeSlotId: null,
+        demoStep: "idle",
+        isSimulating: false
+      });
+    }
   },
 
   getSlot(id) {
@@ -538,7 +653,7 @@ export const useStore = create<AppState>((set, get) => ({
       result: "success"
     });
 
-    // 4) Try Sara on the new open slot — declines
+    // 4) Try Sara on the new open slot. Declines.
     if (!alexBookingId) {
       set({ isSimulating: false, demoStep: "completed" });
       return;
@@ -606,7 +721,7 @@ export const useStore = create<AppState>((set, get) => ({
     });
     set({ demoStep: "sara_declined" });
 
-    // 5) Mia waitlist offer — accepts
+    // 5) Mia waitlist offer. Accepts.
     await sleep(800);
     const miaCallId = `call_${++callCounter}_${Date.now().toString(36)}`;
     state.appendCall({
@@ -717,9 +832,247 @@ export const useStore = create<AppState>((set, get) => ({
       result: "success",
       details: "2 slots filled, 1 customer upgraded"
     });
+  },
+
+  async runTwoPersonDemo() {
+    const state = get();
+    if (state.isSimulating) return;
+
+    if (state.datasetMode !== "two_person") {
+      state.setDatasetMode("two_person");
+    }
+
+    set({ isSimulating: true });
+
+    const caganSlotId = TWO_PERSON_CAGAN_SLOT_ID;
+    const openedAt = new Date().toISOString();
+
+    set((s) => ({
+      slots: s.slots.map((sl) =>
+        sl.id === caganSlotId
+          ? {
+              ...sl,
+              status: "open",
+              customerId: undefined,
+              origin: "manual_opening",
+              cancelledAt: openedAt
+            }
+          : sl
+      ),
+      customers: s.customers.map((c) =>
+        c.id === "cust_cagan" ? { ...c, currentBookingId: undefined } : c
+      ),
+      activeSlotId: caganSlotId,
+      demoStep: "cancelled"
+    }));
+    get().appendAudit({
+      actor: "system",
+      action: "booking.removed",
+      object: "cust_cagan",
+      result: "info",
+      details: "OpenSlot manually removed Çağan Oflazoğlu's tomorrow 14:00 booking"
+    });
+    get().appendAudit({
+      actor: "system",
+      action: "slot.opened",
+      object: caganSlotId,
+      result: "info",
+      details: "Tomorrow 14:00 MRI Knee slot opened for waitlist outreach"
+    });
+    get().appendAudit({
+      actor: "system",
+      action: "waitlist.rank",
+      object: caganSlotId,
+      result: "info",
+      details: "Ash is the top eligible waitlist candidate"
+    });
+
+    try {
+      await sleep(700);
+
+      set({ demoStep: "ash_calling" });
+      get().appendAudit({
+        actor: "system",
+        action: "call.start",
+        object: "cust_ash",
+        result: "info",
+        details: "Fonio waitlist call requested for tomorrow 14:00"
+      });
+      const ashStart = await startRealDemoCall({
+        customerId: "cust_ash",
+        slotId: caganSlotId,
+        type: "waitlist_offer",
+        serviceName: "MRI Knee",
+        slotTime: "tomorrow at 14:00",
+        newSlotTime: "tomorrow at 14:00",
+        arrivalTime: "13:45",
+        location: "Vienna Private Imaging, Innere Stadt",
+        offerIntroLine:
+          "You are on the waitlist for an MRI Knee appointment. A slot opened tomorrow at 14:00."
+      });
+      get().appendCall({
+        id: ashStart.offerId,
+        offerId: ashStart.offerId,
+        slotId: caganSlotId,
+        customerId: "cust_ash",
+        type: "waitlist_offer",
+        status: "queued",
+        startedAt: new Date().toISOString(),
+        transcript: []
+      });
+
+      const ashCall = await pollRealDemoCall(ashStart.offerId, (call) => {
+        get().updateCall(ashStart.offerId, callPatchFromDemo(call));
+      });
+
+      if (!ashCall || ashCall.status !== "accepted") {
+        get().appendAudit({
+          actor: "system",
+          action: "cascade.stopped",
+          object: caganSlotId,
+          result: ashCall ? "blocked" : "error",
+          details: ashCall
+            ? `Ash call ended with ${ashCall.status}; vacated slot remains open.`
+            : "Timed out waiting for Fonio post-call webhook for Ash."
+        });
+        set({ demoStep: "completed", isSimulating: false });
+        return;
+      }
+
+      const filledAt2 = ashCall.endedAt ?? new Date().toISOString();
+      const vacated = get().getSlot(caganSlotId)!;
+      set((s) => ({
+        slots: s.slots.map((sl) =>
+          sl.id === caganSlotId
+            ? { ...sl, status: "filled", customerId: "cust_ash", filledAt: filledAt2 }
+            : sl
+        ),
+        customers: s.customers.map((c) =>
+          c.id === "cust_ash"
+            ? { ...c, currentBookingId: caganSlotId, waitingSince: undefined }
+            : c
+        ),
+        recoveredRevenue: s.recoveredRevenue + vacated.estimatedValue,
+        slotsSaved: s.slotsSaved + 1,
+        scannerMinutesRecovered: s.scannerMinutesRecovered + vacated.durationMinutes,
+        cascadeChains: [
+          {
+            id: "chain_one_person",
+            rootSlotId: caganSlotId,
+            steps: [
+              {
+                slotId: caganSlotId,
+                filledByCustomerId: "cust_ash",
+                type: "waitlist",
+                at: filledAt2
+              }
+            ],
+            depth: 1,
+            status: "completed",
+            startedAt: openedAt,
+            completedAt: filledAt2
+          },
+          ...s.cascadeChains
+        ],
+        demoStep: "completed",
+        isSimulating: false
+      }));
+      get().appendAudit({
+        actor: "system",
+        action: "slot.filled",
+        object: caganSlotId,
+        result: "success",
+        details: "Filled by Ash after Fonio accepted extraction"
+      });
+      get().appendAudit({
+        actor: "system",
+        action: "confirmation.email_requested",
+        object: "cust_ash",
+        result: "info",
+        details: "Fonio Send Email handles Ash's confirmation when configured"
+      });
+      get().appendAudit({
+        actor: "system",
+        action: "demo.completed",
+        object: "chain_one_person",
+        result: "success",
+        details: "1 slot filled after one outbound call to Ash"
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      get().appendAudit({
+        actor: "system",
+        action: "call.error",
+        object: "fonio",
+        result: "error",
+        details: message
+      });
+      set({ demoStep: "completed", isSimulating: false });
+    }
   }
 }));
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function startRealDemoCall(params: DemoCallStartParams) {
+  const response = await fetch("/api/fonio/demo-call", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+  const data = (await response.json().catch(() => ({}))) as DemoCallStartResponse;
+  if (!response.ok || !data.ok || !data.offerId) {
+    throw new Error(
+      data.hint ?? data.error ?? data.reason ?? `Fonio demo call failed with HTTP ${response.status}`
+    );
+  }
+  return { offerId: data.offerId, providerCallId: data.providerCallId };
+}
+
+async function pollRealDemoCall(
+  offerId: string,
+  onUpdate: (call: NonNullable<DemoCallPollResponse["call"]>) => void
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < REAL_DEMO_CALL_TIMEOUT_MS) {
+    await sleep(1500);
+    const response = await fetch(`/api/fonio/demo-call/${offerId}`, { cache: "no-store" });
+    const data = (await response.json().catch(() => ({}))) as DemoCallPollResponse;
+
+    if (response.ok && data.ok && data.call) {
+      onUpdate(data.call);
+      if (FINAL_DEMO_STATUSES.has(data.call.status)) {
+        return data.call;
+      }
+    } else if (response.status !== 404) {
+      throw new Error(data.reason ?? `Demo call polling failed with HTTP ${response.status}`);
+    }
+  }
+  return null;
+}
+
+function callPatchFromDemo(call: NonNullable<DemoCallPollResponse["call"]>): Partial<CallSession> {
+  return {
+    status: call.status,
+    endedAt: call.endedAt,
+    durationSeconds: call.durationSeconds,
+    recordingUrl: call.recordingUrl,
+    extraction: call.extraction
+      ? {
+          identityConfirmed: Boolean(call.extraction.identityConfirmed),
+          slotAccepted: Boolean(call.extraction.slotAccepted),
+          askedMedicalQuestion: Boolean(call.extraction.askedMedicalQuestion),
+          needsCallback: Boolean(call.extraction.wantsCallback),
+          voicemail: Boolean(call.extraction.voicemail)
+        }
+      : undefined,
+    needsReview:
+      call.status === "failed" ||
+      call.extraction?.askedMedicalQuestion === true ||
+      call.extraction?.wantsCallback === true ||
+      undefined,
+    reviewReason: call.error
+  };
 }

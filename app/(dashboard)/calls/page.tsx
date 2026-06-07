@@ -98,7 +98,7 @@ export default function CallsPage() {
                             <CallTypePill type={c.type} />
                           </div>
                           <div className="text-meta text-ink-500 truncate">
-                            {slot?.service} · {slot ? timeOfDay(slot.startTime) : "—"}
+                            {slot?.service} · {slot ? timeOfDay(slot.startTime) : "-"}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -125,12 +125,12 @@ export default function CallsPage() {
               <CallHeader call={selected} onMarkReviewed={() => markReviewed(selected.id)} />
               <div className="p-5 space-y-5">
                 <div className="grid grid-cols-2 gap-3">
-                  <MetaTile k="Duration" v={selected.durationSeconds ? secondsToClock(selected.durationSeconds) : "—"} />
+                  <MetaTile k="Duration" v={selected.durationSeconds ? secondsToClock(selected.durationSeconds) : "-"} />
                   <MetaTile
                     k="Time offered"
                     v={(() => {
                       const slot = slots.find((s) => s.id === selected.slotId);
-                      return slot ? longDate(slot.startTime) : "—";
+                      return slot ? longDate(slot.startTime) : "-";
                     })()}
                   />
                   <MetaTile k="Recording" v={selected.recordingUrl ? "Stored 7d" : "Not stored"} />

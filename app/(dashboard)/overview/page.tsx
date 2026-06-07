@@ -51,7 +51,7 @@ export default function OverviewPage() {
           <h1 className="text-title-xl tracking-tight">Overview</h1>
           <p className="mt-2 text-body text-ink-500 max-w-xl">
             Track recovered revenue, open slots, and waitlist performance in real time.
-            One cancellation, one cascade — every slot accounted for.
+            One cancellation, one cascade, every slot accounted for.
           </p>
         </div>
         <div className="flex items-center gap-2">

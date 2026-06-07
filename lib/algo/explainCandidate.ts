@@ -24,6 +24,7 @@ function locationNodeForSlot(slot: Slot): string {
 function homeNodeForCustomer(c: Customer): string {
   // Deterministic stand-in based on customer id, used until real `routeNodeId` joins exist.
   const seedMap: Record<string, string> = {
+    cust_cagan: "vienna_1010",
     cust_alex: "vienna_1070",
     cust_sara: "vienna_1190",
     cust_jonas: "vienna_1100",

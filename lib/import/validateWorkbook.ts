@@ -76,7 +76,7 @@ export function validateCustomersSheet(sheet: ParsedSheet): SheetValidation {
           sheet: sheet.sheetName,
           rowIndex: i,
           field: "call_consent",
-          message: "Customer has no call consent — they will not be contacted",
+          message: "Customer has no call consent. They will not be contacted",
           severity: "warning"
         });
       }
@@ -85,7 +85,7 @@ export function validateCustomersSheet(sheet: ParsedSheet): SheetValidation {
           sheet: sheet.sheetName,
           rowIndex: i,
           field: "home_lat/home_lng",
-          message: "Missing coordinates — route feasibility will assume zero travel",
+          message: "Missing coordinates. Route feasibility will assume zero travel",
           severity: "warning"
         });
       }

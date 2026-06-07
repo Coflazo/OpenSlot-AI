@@ -89,12 +89,12 @@ export function AggressionDial({ minutesLeft, rules }: Props) {
       </svg>
       <div className="text-meta text-ink-500 text-center mt-1">
         {level === "emergency"
-          ? "Under 30 min — call up to 10 candidates with slot locking."
+          ? "Under 30 min. Call up to 10 candidates with slot locking."
           : level === "aggressive"
-            ? "30 min – 2h — call 3 to 5 candidates quickly."
+            ? "30 min to 2h. Call 3 to 5 candidates quickly."
             : level === "focused"
-              ? "2 to 6h — call 2 candidates in sequence."
-              : "More than 6h — call 1 candidate at a time."}
+              ? "2 to 6h. Call 2 candidates in sequence."
+              : "More than 6h. Call 1 candidate at a time."}
       </div>
     </div>
   );

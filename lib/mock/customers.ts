@@ -5,6 +5,30 @@ const days = (d: number) => new Date(today.getTime() - d * 86400000).toISOString
 
 export const customers: Customer[] = [
   {
+    id: "cust_cagan",
+    name: "Çağan Oflazoğlu",
+    phone: "+31 6 309 247 15",
+    email: "cagan04oflazoglu@gmail.com",
+    language: "en",
+    consent: { call: true, sms: true, voicemail: true, recording: true },
+    eligibility: {
+      safetyForm: true,
+      referral: true,
+      paymentReady: true,
+      authorization: true,
+      contrastStatus: "not_required"
+    },
+    preferences: { sameDay: true, preferredWindow: "any", maxTravelMinutes: 60 },
+    requestedService: "MRI Knee",
+    requestedBodyPart: "Right knee",
+    bookingSatisfaction: "urgently_wants_earlier",
+    earlierOpportunityPreference: "any_earlier",
+    cascadeParticipation: "can_move",
+    businessPriority: 0.95,
+    waitingSince: days(1),
+    notes: "Demo account. Real Fonio calls land here. Lives near Innere Stadt."
+  },
+  {
     id: "cust_alex",
     name: "Alex Berger",
     phone: "+43 1 478 21 04",

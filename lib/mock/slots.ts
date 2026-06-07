@@ -28,8 +28,8 @@ const serviceMeta: Record<ServiceCode, { duration: number; value: number; contra
   "X-ray": { duration: 15, value: 120, contrast: false }
 };
 
-const LOC = "Vienna Private Imaging — Innere Stadt";
-const LOC2 = "Vienna Private Imaging — Mariahilf";
+const LOC = "Vienna Private Imaging,Innere Stadt";
+const LOC2 = "Vienna Private Imaging,Mariahilf";
 
 function mk(
   id: string,
@@ -58,7 +58,7 @@ function mk(
 }
 
 export const slots: Slot[] = [
-  // Today — the cancellation hero slot
+  // Today: the cancellation hero slot
   mk("slot_today_1630", "MRI Knee", 0, 16, 30, "cust_lena", "booked"),
 
   // Today's other booked slots (calendar context)
@@ -76,7 +76,7 @@ export const slots: Slot[] = [
   mk("slot_tmrw_1200", "CT Chest", 1, 12, 0, "cust_kerem", "booked"),
   mk("slot_tmrw_1400", "MRI Spine", 1, 14, 0, "cust_yusuf", "booked", LOC2),
 
-  // Future booked — the cascade upgrade candidates
+  // Future booked: the cascade upgrade candidates
   mk("slot_alex_jul20", "MRI Knee", 44, 11, 0, "cust_alex", "booked"),
   mk("slot_sara_jul25", "MRI Knee", 49, 9, 30, "cust_sara", "booked"),
   mk("slot_jonas_aug2", "MRI Knee", 57, 14, 0, "cust_jonas", "booked", LOC2),

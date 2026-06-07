@@ -104,7 +104,7 @@ export default function SettingsPage() {
                   ["MRI Spine", 60, 640, false, "Safety form, referral"],
                   ["CT Chest", 30, 380, true, "Contrast clearance"],
                   ["CT Abdomen", 30, 410, true, "Contrast clearance"],
-                  ["Ultrasound", 25, 180, false, "—"],
+                  ["Ultrasound", 25, 180, false, "-"],
                   ["X-ray", 15, 120, false, "Referral"]
                 ].map(([n, d, v, c, f]) => (
                   <tr key={String(n)} className="border-b border-stone/60">

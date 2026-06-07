@@ -92,7 +92,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       .filter((s) => s.status !== "booked")
       .slice(0, 12)
       .map((s) => ({
-        label: `${s.service} — ${new Date(s.startTime).toLocaleString("de-AT")}`,
+        label: `${s.service} · ${new Date(s.startTime).toLocaleString("de-AT")}`,
         hint: s.location,
         group: "slots",
         onSelect: () => {

@@ -63,7 +63,7 @@ export function FonioCard() {
           <CardTitle>
             <span className="inline-flex items-center gap-2">
               <PhoneCallIcon size={18} weight="duotone" className="text-saffron-700" />
-              Fonio — voice agent
+              Fonio · voice agent
             </span>
           </CardTitle>
           <CardDescription>
@@ -101,7 +101,7 @@ export function FonioCard() {
                 <div key={f.key} className="flex items-baseline gap-2">
                   <span className="font-mono text-[11px] text-violet">{f.type}</span>
                   <span className="font-mono font-[700]">{f.key}</span>
-                  <span className="text-ink-500 truncate">— {f.prompt}</span>
+                  <span className="text-ink-500 truncate">· {f.prompt}</span>
                 </div>
               ))}
             </div>

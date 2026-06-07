@@ -12,9 +12,9 @@ import {
 } from "@/components/primitives/dropdown";
 
 const LOCATIONS = [
-  "Vienna Private Imaging — Innere Stadt",
-  "Vienna Private Imaging — Mariahilf",
-  "Vienna Private Imaging — Donaustadt"
+  "Vienna Private Imaging,Innere Stadt",
+  "Vienna Private Imaging,Mariahilf",
+  "Vienna Private Imaging,Donaustadt"
 ];
 
 export function ClinicSwitcher() {

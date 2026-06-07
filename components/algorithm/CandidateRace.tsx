@@ -72,7 +72,7 @@ export function CandidateRace({
                   <div className="text-meta text-ink-500 truncate">
                     {c.status === "travel_blocked"
                       ? `${c.route.travelMinutes}m drive vs ${c.route.timeLeftMinutes}m left`
-                      : c.reasons[0] ?? "—"}
+                      : c.reasons[0] ?? "-"}
                   </div>
                 </div>
                 <div className="text-right shrink-0">

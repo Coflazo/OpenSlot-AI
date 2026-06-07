@@ -6,6 +6,13 @@ import type { StoredConnection } from "@/lib/google/calendar";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: "google_or_supabase_not_configured"
+    });
+  }
   const supabase = createSupabaseServiceClient();
   const body = await req.json().catch(() => ({}));
   const clinicId = body?.clinicId as string | undefined;

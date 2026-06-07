@@ -22,7 +22,7 @@ export const DEFAULT_RETENTION: RetentionRule[] = [
     description: "Voice recordings of outbound calls.",
     defaultDays: 30,
     legalReference: "GDPR Art. 5(1)(e), 25",
-    notes: "Off by default — only enabled if recording_consent is true at call time."
+    notes: "Off by default. Only enabled if recording_consent is true at call time."
   },
   {
     category: "Call transcripts",
@@ -46,7 +46,7 @@ export const DEFAULT_RETENTION: RetentionRule[] = [
     category: "Consent proof",
     description: "Source, timestamp, and text of every consent.",
     defaultDays: 365 * 10,
-    legalReference: "GDPR Art. 7(1) — controller must be able to demonstrate consent"
+    legalReference: "GDPR Art. 7(1): controller must be able to demonstrate consent"
   },
   {
     category: "Import workbooks (Storage)",
@@ -58,6 +58,6 @@ export const DEFAULT_RETENTION: RetentionRule[] = [
     category: "Google OAuth tokens",
     description: "Encrypted access + refresh tokens for the clinic's calendar.",
     defaultDays: 0, // until disconnect
-    legalReference: "GDPR Art. 5(1)(e), 32 — encrypted at rest"
+    legalReference: "GDPR Art. 5(1)(e), 32: encrypted at rest"
   }
 ];

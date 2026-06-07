@@ -232,7 +232,7 @@ export default function CompliancePage() {
                 <tr className="border-t border-stone/60">
                   <td>Booking + cancellation orchestration</td>
                   <td>contract (Art. 6(1)(b))</td>
-                  <td>n/a — no clinical data</td>
+                  <td>n/a, no clinical data</td>
                 </tr>
                 <tr className="border-t border-stone/60">
                   <td>Outbound recovery call</td>

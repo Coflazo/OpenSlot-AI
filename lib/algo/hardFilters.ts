@@ -27,7 +27,7 @@ export function hardFilters(customer: Customer, slot: Slot, rules: RuleWeights):
   if (rules.requireServiceMatch && customer.requestedService && customer.requestedService !== slot.service)
     blocks.push("Wrong service type");
 
-  // Cooldown — contacted within last hour
+  // Cooldown: contacted within last hour
   if (rules.skipRecentlyDeclined && customer.lastContactedAt) {
     const minsSince = (Date.now() - new Date(customer.lastContactedAt).getTime()) / 60_000;
     if (minsSince < 60) blocks.push("Contacted too recently");

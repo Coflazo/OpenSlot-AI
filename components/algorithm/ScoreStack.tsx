@@ -28,7 +28,7 @@ export function ScoreStack({ candidate }: { candidate: AlgorithmExplanation }) {
     <div className="rounded-card bg-white shadow-card p-5">
       <div className="flex items-center gap-2 mb-4">
         <StackIcon size={16} weight="duotone" className="text-peacock" />
-        <h3 className="text-section">Score breakdown — {candidate.customerName}</h3>
+        <h3 className="text-section">Score breakdown · {candidate.customerName}</h3>
         <span className="ml-auto font-mono tabular-nums text-[18px] font-[700]">
           {candidate.finalScore.toFixed(1)}
         </span>

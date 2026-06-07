@@ -82,7 +82,7 @@ export default function DataPage() {
   }
 
   async function syncToSupabase() {
-    // Demo-mode sync — when Supabase is configured this hits /api/imports/.../commit.
+    // Demo-mode sync. When Supabase is configured this hits /api/imports/.../commit.
     // Without creds it just shows the simulated count.
     setSyncing("syncing");
     setTimeout(() => {

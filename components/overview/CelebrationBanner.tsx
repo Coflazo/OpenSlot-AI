@@ -39,7 +39,7 @@ export function CelebrationBanner() {
               <div className="text-[11px] uppercase tracking-[0.14em] font-[700] opacity-80">
                 Cascade completed
               </div>
-              <div className="text-section text-white mt-0.5">Slot recovered — and the chain held</div>
+              <div className="text-section text-white mt-0.5">Slot recovered. The chain held.</div>
               <div className="text-[13.5px] mt-1 opacity-90">
                 The cancelled MRI Knee was filled, Alex moved earlier, and Mia took July 20 from the waitlist.
               </div>

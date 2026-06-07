@@ -14,7 +14,7 @@ export function cascadeFillProbability(vacatedSlot: Slot, allCustomers: Customer
   // Saturating count
   const supply = Math.min(1, eligible / 6);
 
-  // Mid-range time horizon is best — too close = too few candidates respond, too far = uncertain
+  // Mid-range time horizon is best. Too close = too few candidates respond, too far = uncertain.
   const timeBonus = daysOut < 1 ? 0.45 : daysOut < 7 ? 0.85 : daysOut < 30 ? 0.78 : 0.6;
 
   return Math.round(supply * timeBonus * 100) / 100;

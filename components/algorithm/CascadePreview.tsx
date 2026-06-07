@@ -18,7 +18,7 @@ export function CascadePreview({ topCandidate }: { topCandidate?: AlgorithmExpla
         </div>
         <p className="text-meta text-ink-500">
           {topCandidate
-            ? "Top candidate is from the waitlist — no cascade. The chain ends here."
+            ? "Top candidate is from the waitlist. No cascade. The chain ends here."
             : "No top candidate yet."}
         </p>
       </div>
@@ -51,7 +51,7 @@ export function CascadePreview({ topCandidate }: { topCandidate?: AlgorithmExpla
             <Step
               index={3}
               title="Run the algorithm again for the vacated slot"
-              body="Pure waitlist or upgrade pool — same hard filters, same route check, same scoring."
+              body="Pure waitlist or upgrade pool. Same hard filters, same route check, same scoring."
               tone="peacock"
             />
           </>

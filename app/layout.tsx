@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://openslot.ai"),
-  title: "OpenSlot AI — Close the loop on every cancellation",
+  title: "OpenSlot AI · Close the loop on every cancellation",
   description:
     "Detect cancelled appointments, rank your waitlist, call eligible customers, and fill the slot before it expires.",
   applicationName: "OpenSlot AI"

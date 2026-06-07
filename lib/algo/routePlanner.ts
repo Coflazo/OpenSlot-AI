@@ -13,7 +13,7 @@ export interface RouteNode {
 export const routeGraph: Record<string, RouteNode> = {
   clinic_innere_stadt: {
     id: "clinic_innere_stadt",
-    label: "Vienna Private Imaging — Innere Stadt",
+    label: "Vienna Private Imaging,Innere Stadt",
     lat: 48.2082,
     lng: 16.3738,
     neighbors: [
@@ -27,7 +27,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   clinic_mariahilf: {
     id: "clinic_mariahilf",
-    label: "Vienna Private Imaging — Mariahilf",
+    label: "Vienna Private Imaging,Mariahilf",
     lat: 48.1986,
     lng: 16.3478,
     neighbors: [
@@ -39,7 +39,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1010: {
     id: "vienna_1010",
-    label: "1010 — Innere Stadt",
+    label: "1010 Innere Stadt",
     lat: 48.2082,
     lng: 16.3738,
     neighbors: [
@@ -50,7 +50,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1020: {
     id: "vienna_1020",
-    label: "1020 — Leopoldstadt",
+    label: "1020 Leopoldstadt",
     lat: 48.2169,
     lng: 16.4034,
     neighbors: [
@@ -61,7 +61,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1060: {
     id: "vienna_1060",
-    label: "1060 — Mariahilf",
+    label: "1060 Mariahilf",
     lat: 48.199,
     lng: 16.349,
     neighbors: [
@@ -73,7 +73,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1070: {
     id: "vienna_1070",
-    label: "1070 — Neubau",
+    label: "1070 Neubau",
     lat: 48.2058,
     lng: 16.3497,
     neighbors: [
@@ -84,7 +84,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1100: {
     id: "vienna_1100",
-    label: "1100 — Favoriten",
+    label: "1100 Favoriten",
     lat: 48.1536,
     lng: 16.382,
     neighbors: [
@@ -95,7 +95,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1150: {
     id: "vienna_1150",
-    label: "1150 — Rudolfsheim-Fünfhaus",
+    label: "1150 Rudolfsheim-Fünfhaus",
     lat: 48.1968,
     lng: 16.3308,
     neighbors: [
@@ -106,7 +106,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1140: {
     id: "vienna_1140",
-    label: "1140 — Penzing",
+    label: "1140 Penzing",
     lat: 48.2099,
     lng: 16.2786,
     neighbors: [
@@ -116,7 +116,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1130: {
     id: "vienna_1130",
-    label: "1130 — Hietzing",
+    label: "1130 Hietzing",
     lat: 48.1849,
     lng: 16.3098,
     neighbors: [
@@ -126,7 +126,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1190: {
     id: "vienna_1190",
-    label: "1190 — Döbling",
+    label: "1190 Döbling",
     lat: 48.2541,
     lng: 16.3525,
     neighbors: [
@@ -136,7 +136,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1180: {
     id: "vienna_1180",
-    label: "1180 — Währing",
+    label: "1180 Währing",
     lat: 48.2329,
     lng: 16.3357,
     neighbors: [
@@ -145,7 +145,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1220: {
     id: "vienna_1220",
-    label: "1220 — Donaustadt",
+    label: "1220 Donaustadt",
     lat: 48.2228,
     lng: 16.4575,
     neighbors: [
@@ -154,7 +154,7 @@ export const routeGraph: Record<string, RouteNode> = {
   },
   vienna_1230: {
     id: "vienna_1230",
-    label: "1230 — Liesing",
+    label: "1230 Liesing",
     lat: 48.1361,
     lng: 16.2925,
     neighbors: [
