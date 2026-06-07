@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     // Find the first offering (current patient being called)
-    const firstOffering = offerings?.[0];
+    const firstOffering = offerings?.[0] as any;
     if (!firstOffering) {
       return Response.json(
         { error: "No offerings available" },
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       }
 
       // Get next patient info
-      const nextPatient = remainingOfferings[0].waitlist_entries?.patients;
+      const nextPatient = (remainingOfferings[0] as any).waitlist_entries?.patients;
 
       return Response.json({
         message: "Patient rejected. Calling next patient.",

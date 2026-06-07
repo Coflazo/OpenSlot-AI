@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, FlaskConical } from "lucide-react";
 
 const cards = [
   {
@@ -202,6 +202,50 @@ export default function Overview() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Simulation Preview Strip */}
+      <div
+        className="mt-6 rounded-xl border p-6 flex flex-col md:flex-row items-start md:items-center gap-6"
+        style={{ backgroundColor: "var(--primary)", borderColor: "var(--primary)" }}
+      >
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <FlaskConical className="h-6 w-6" style={{ color: "var(--accent)" }} />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: "oklch(1 0 0 / 0.6)" }}>
+              Monte Carlo Simulation · 50 Trials
+            </p>
+            <p className="text-base font-bold" style={{ color: "var(--primary-foreground)" }}>
+              Model performance across varied clinic conditions
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 grid grid-cols-3 gap-4">
+          {[
+            { label: "Mean Fill Rate", value: "85.6%" },
+            { label: "Fewer Empty Slots", value: "−25%" },
+            { label: "Zero Double-Bookings", value: "50 / 50" },
+          ].map((s, i) => (
+            <div key={i} className="text-center">
+              <p className="text-2xl font-black" style={{ color: "var(--primary-foreground)" }}>
+                {s.value}
+              </p>
+              <p className="text-xs mt-1" style={{ color: "oklch(1 0 0 / 0.6)" }}>
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <a
+          href="/analytics"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold flex-shrink-0 transition-opacity hover:opacity-80"
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-foreground)" }}
+        >
+          Full Results
+          <TrendingUp className="h-4 w-4" />
+        </a>
       </div>
     </div>
   );

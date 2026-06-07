@@ -5,10 +5,10 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 export async function GET(
   request: Request,
-  { params }: { params: { slotId: string } }
+  { params }: { params: Promise<{ slotId: string }> }
 ) {
   try {
-    const slotId = params.slotId;
+    const { slotId } = await params;
 
     if (!slotId) {
       return Response.json(

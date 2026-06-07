@@ -165,7 +165,7 @@ export default function MockCancellations() {
               return (
                 <button
                   key={service}
-                  onClick={() => setSelectedService(service)}
+                  onClick={() => setSelectedService(service ?? null)}
                   className="px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200"
                   style={{
                     backgroundColor:

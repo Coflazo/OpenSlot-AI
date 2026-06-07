@@ -110,7 +110,7 @@ export async function makeOutboundCall(
     );
 
     // Fonio may return callId in different fields
-    const callId = data.callId || data.call_id || data.id || "fonio_call_" + Date.now();
+    const callId = data.callId || (data as any).call_id || (data as any).id || "fonio_call_" + Date.now();
 
     console.log(`[FONIO] Extracted callId: ${callId}`);
 
